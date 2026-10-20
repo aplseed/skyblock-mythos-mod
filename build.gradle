@@ -33,3 +33,15 @@ java {
 		languageVersion = JavaLanguageVersion.of(25)
 	}
 }
+
+// Client game test (src/gametest): boots the real client against
+// .github/fake-backend and checks every panel. Run: ./gradlew runClientGameTest
+fabricApi {
+	configureTests {
+		createSourceSet = true
+		modId = 'mythos-gametest'
+		enableGameTests = false
+		enableClientGameTests = true
+		eula = true
+	}
+}

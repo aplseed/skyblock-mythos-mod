@@ -12,6 +12,9 @@ import dev.aplseed.mythos.feature.ShardTracker;
 import dev.aplseed.mythos.menu.MenuOverlays;
 import dev.aplseed.mythos.net.Backend;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.List;
 import java.util.Locale;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -60,7 +63,16 @@ public final class Mythos implements ClientModInitializer {
 		return s != null && s.ip != null && s.ip.toLowerCase(Locale.ROOT).contains("hypixel");
 	}
 
+	private static final Deque<String> SENT = new ArrayDeque<>();
+
+	/** The mod's last chat lines, newest last (read by the client game test). */
+	public static List<String> sentChat() {
+		return List.copyOf(SENT);
+	}
+
 	public static void chat(String msg) {
+		if (SENT.size() >= 50) SENT.removeFirst();
+		SENT.addLast(msg);
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.player != null) mc.player.sendSystemMessage(Component.literal("§5[Mythos]§r " + msg));
 	}

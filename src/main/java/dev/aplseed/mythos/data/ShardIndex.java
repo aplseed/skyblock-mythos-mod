@@ -20,17 +20,13 @@ public final class ShardIndex {
 	private static Map<String, Shard> byName = Map.of();
 	private static Map<String, Shard> byId = Map.of();
 	private static long fetchedAt;
-	private static boolean loading;
 
 	private ShardIndex() {}
 
 	public static void refresh(boolean force) {
-		if (loading || (!force && System.currentTimeMillis() - fetchedAt < TTL_MS)) return;
-		loading = true;
+		if (!force && System.currentTimeMillis() - fetchedAt < TTL_MS) return;
+		fetchedAt = System.currentTimeMillis() - TTL_MS + 30_000;     // retry in 30 s on failure
 		Mythos.backend().get("/api/mod/shards", ShardIndex::load);
-		// allow a retry after a failure without hammering the server
-		fetchedAt = System.currentTimeMillis() - TTL_MS + 30_000;
-		loading = false;
 	}
 
 	private static void load(JsonObject j) {

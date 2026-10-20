@@ -1,0 +1,13 @@
+{
+	"schemaVersion": 1,
+	"id": "mythos-gametest",
+	"version": "1.0.0",
+	"name": "Mythos client game test",
+	"environment": "client",
+	"entrypoints": {
+		"fabric-client-gametest": ["dev.aplseed.mythos.test.MythosClientGameTest"]
+	},
+	"depends": {
+		"mythos": "*"
+	}
+}

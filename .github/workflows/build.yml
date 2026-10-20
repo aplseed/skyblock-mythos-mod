@@ -15,19 +15,49 @@ jobs:
           distribution: temurin
           java-version: '25'
       - uses: gradle/actions/setup-gradle@v4
-      - name: Latest Fabric versions (for reference)
-        run: |
-          for p in net/fabricmc/fabric-loom/net.fabricmc.fabric-loom.gradle.plugin net/fabricmc/fabric-loader net/fabricmc/fabric-api/fabric-api; do
-            echo "== $p"; curl -s https://maven.fabricmc.net/$p/maven-metadata.xml | grep -oE '<(latest|release)>[^<]+' | sort -u
-          done
-          curl -s https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/maven-metadata.xml | grep -oE '[0-9.]+\+26\.1\.2' | tail -3
       - name: Build
         run: ./gradlew build --stacktrace
       - name: API probe
         if: always() && hashFiles('.github/probe/probe.sh') != ''
         run: bash .github/probe/probe.sh
       - uses: actions/upload-artifact@v4
-        if: success()
         with:
           name: mythos-jar
           path: build/libs/*.jar
+
+  # Boots the real client headless against recorded server responses and
+  # checks what every panel draws (src/gametest).
+  client-gametest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install a virtual display
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq xvfb mesa-utils
+      - name: Start the fake backend
+        run: |
+          nohup python3 .github/fake-backend/server.py > fake-backend.log 2>&1 &
+          sleep 1
+          curl -s -X POST localhost:5658/api/auth/login -d '{}' | head -c 120; echo
+      - name: Run the client game test
+        run: xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runClientGameTest --stacktrace
+      - name: Test output
+        if: always()
+        run: |
+          echo "=== fake backend"; cat fake-backend.log
+          LOG=$(find build/run -name latest.log | head -1)
+          echo "=== $LOG (mythos lines)"
+          grep -n -A12 "\[gametest\]\|mythos\|Mythos\|Exception\|Error" "$LOG" | head -400 || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gametest-screenshots
+          path: |
+            build/run/**/screenshots/*.png
+            build/run/**/logs/latest.log
+          if-no-files-found: ignore

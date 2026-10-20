@@ -23,6 +23,12 @@ public final class Panel {
 	private record Line(String text, int color, boolean header) {}
 
 	private final List<Line> lines = new ArrayList<>();
+	private static List<String> lastDrawn = List.of();
+
+	/** Text of the most recently drawn panel (read by the client game test). */
+	public static List<String> lastDrawn() {
+		return lastDrawn;
+	}
 
 	public Panel header(String text) {
 		if (!lines.isEmpty()) lines.add(new Line("", 0, false));
@@ -44,6 +50,7 @@ public final class Panel {
 	}
 
 	public void draw(GuiGraphicsExtractor g, Font font, int menuLeft, int menuTop, int menuWidth, int screenWidth) {
+		lastDrawn = lines.stream().map(Line::text).toList();
 		if (lines.isEmpty()) return;
 		int w = 0;
 		for (Line l : lines) w = Math.max(w, font.width(l.text));
