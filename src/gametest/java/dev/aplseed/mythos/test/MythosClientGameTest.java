@@ -2,6 +2,7 @@ package dev.aplseed.mythos.test;
 
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import dev.aplseed.mythos.Mythos;
+import dev.aplseed.mythos.feature.AbsorbSync;
 import dev.aplseed.mythos.feature.ShardTracker;
 import dev.aplseed.mythos.ui.Panel;
 import java.nio.file.Files;
@@ -59,10 +60,14 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 					boxShard("Aero", "E3", 192, false),
 					boxShard("Alligator", "E6", 256, false)),
 					"Fusion plan", "3 shard types, 1088 shards", "Fusing adds", "Absorb sync", "Read 1 shard, 1 updated");
-			check(ctx, "absorb", "Attribute Menu", List.of(
-					shard("Abyssal Lanternfish", 1, "Absorbed: 5/96"),
-					shard("Aero", 1, "Absorbed: 0/64")),
+			// Attribute Menu items as Hypixel sends them (from a real F8 dump)
+			check(ctx, "absorb", "(1/12) Attribute Menu", List.of(
+					item("Attribute Menu", "Syphon Shards to unlock and level", "up your Attributes!"),
+					attribute("Deep Light I", "Abyssal Lanternfish", "R23", "Attribute Level: 1",
+							"Syphon 3 shards to level up!", "Syphon 47 shards to max!"),
+					attribute("Air Elemental X", "Aero", "E3", "Attribute Level: 10 (MAX!)")),
 					"Shard absorption", "To max everything", "Read 2 shards");
+			absorbedArithmetic();
 			check(ctx, "bazaar", "Mining ➜ Enchanted Diamond", List.of(item("Enchanted Diamond", "Buy price: 151.2")),
 					"Enchanted Diamond", "Undervalued", "64% right", "Held 640", "Cole (now)");
 			check(ctx, "forge", "The Forge", List.of(
@@ -89,8 +94,26 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 		return s;
 	}
 
-	private static ItemStack shard(String name, int count, String lore) {
-		return named(Items.PRISMARINE_SHARD, name + " Shard", count, lore);
+	private static ItemStack attribute(String name, String shard, String id, String... progress) {
+		List<String> lore = new ArrayList<>(List.of("Global", "", "Grants something.", "",
+				"Source: " + shard + " Shard (" + id + ")", "Rarity: RARE", "Enabled: Yes", ""));
+		lore.addAll(List.of(progress));
+		lore.addAll(List.of("", "Left-Click to open!"));
+		return named(Items.PRISMARINE_SHARD, name, 1, lore.toArray(String[]::new));
+	}
+
+	/** The count rules, on lore lines copied from a real Attribute Menu dump. */
+	private void absorbedArithmetic() {
+		record Case(List<String> lore, int cap, int want) {}
+		for (Case c : List.of(
+				new Case(List.of("Attribute Level: 1", "Syphon 3 shards to level up!", "Syphon 95 shards to max!"), 96, 1),
+				new Case(List.of("Attribute Level: 10 (MAX!)", "", "Left-Click to open!"), 96, 96),
+				new Case(List.of("Syphon 1 shard to unlock!", "Syphon 96 more to max!"), 96, 0),
+				new Case(List.of("Owned: 9 Shards", "Attribute Maxed!"), 64, 64),
+				new Case(List.of("Owned: 9 Shards", "Right-click to convert to an item!"), 64, -1))) {
+			int got = AbsorbSync.absorbed(c.lore, c.cap);
+			if (got != c.want) failures.add("absorbed " + c.lore + ": got " + got + ", want " + c.want);
+		}
 	}
 
 	private static ItemStack item(String name, String... lore) {

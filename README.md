@@ -70,6 +70,12 @@ The jar is written to `build/libs/`. CI builds every push and attaches the jar t
 
 ## Known limitations
 
-- **Some menu formats are still inferred.** The Hunting Box reader follows a real dump: shards are identified by the `(ID C28)` on their last lore line, counts come from "Owned: n Shards", and "Attribute Maxed!" marks a shard as fully absorbed. The Attribute Menu ("Absorbed"), Fusion Machine and Forge slot ("Click to select") readers are still guesses. If a panel shows nothing, or reads numbers wrongly, press F8 in that menu and send the dump.
+- **Some menu formats are still inferred.** The Hunting Box and Attribute Menu readers follow real dumps:
+  - Shards are identified by the id in their lore: `(ID C28)` in the Hunting Box, `Source: Grove Shard (C1)` in the Attribute Menu.
+  - Hunting Box counts come from "Owned: n Shards".
+  - The game never shows an absorbed count directly, so it's worked out from the lore: "Attribute Maxed!" or "Attribute Level: 10 (MAX!)" means the cap; otherwise it's the cap minus "Syphon n shards to max!" (or "n more to max" while locked). This relies on the server's caps per rarity (Common 96, Uncommon 64, Rare 48, …) matching the game's.
+
+  The Fusion Machine and Forge slot ("Click to select") readers are still guesses. If a panel shows nothing, or reads numbers wrongly, press F8 in that menu and send the dump.
+- **The Attribute Menu syncs one page at a time.** Each of its pages is synced when you open it.
 - **The Hunting Box planner only sees the page that's open.** It counts the shards shown on the current page plus your inventory.
 - **Shard sessions count chat messages that name a shard.** Catch messages worded in ways the patterns don't match aren't counted.

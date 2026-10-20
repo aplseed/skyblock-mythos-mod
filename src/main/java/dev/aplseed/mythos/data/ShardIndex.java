@@ -20,7 +20,8 @@ public final class ShardIndex {
 	}
 
 	private static final long TTL_MS = 5 * 60_000;
-	private static final Pattern ID_LINE = Pattern.compile("SHARD \\(ID ([A-Z]+\\d+)\\)");
+	// Hunting Box: "COMMON FOREST SHARD (ID C28)"; Attribute Menu: "Source: Grove Shard (C1)"
+	private static final Pattern ID_LINE = Pattern.compile("(?i)shard \\((?:ID )?([A-Z]+\\d+)\\)");
 	private static Map<String, Shard> byName = Map.of();
 	private static Map<String, Shard> byId = Map.of();
 	private static long fetchedAt;
@@ -69,8 +70,8 @@ public final class ShardIndex {
 	}
 
 	/**
-	 * The shard a menu item shows. Hunting Box items name the shard ("Locust")
-	 * and end their lore with "COMMON FOREST SHARD (ID C28)"; the id wins.
+	 * The shard a menu item shows, by the id in its lore when there is one
+	 * (Hunting Box and Attribute Menu both carry it), else by item name.
 	 */
 	public static Shard of(Menu.Entry e) {
 		for (int i = e.lore().size() - 1; i >= 0; i--) {

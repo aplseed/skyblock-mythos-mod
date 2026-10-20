@@ -18,14 +18,15 @@ import java.util.regex.Pattern;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /**
- * Attribute Menu and Hunting Box: reads how many of each shard you've absorbed
- * ("Absorbed: n", or the cap for "Attribute Maxed!") and stores it on the
- * server (/api/mod/absorb), so the web absorb tracker is never stale. In the
+ * Attribute Menu and Hunting Box: works out how many of each shard you've
+ * absorbed and stores it on the server (/api/mod/absorb), so the web absorb
+ * tracker is never stale. The game shows no count directly: "Attribute Level:
+ * 10 (MAX!)" / "Attribute Maxed!" mean the cap, otherwise it's the cap minus
+ * "Syphon n shards to max!" (or "Syphon n more to max!" while locked). In the
  * Attribute Menu it also shows what finishing each one costs (/api/shards/absorb).
  */
 public final class AbsorbSync implements MenuFeature {
-	private static final Pattern ABSORBED = Pattern.compile("(?i)absorbed");
-	private static final String MAXED = "Attribute Maxed!";
+	private static final Pattern TO_MAX = Pattern.compile("Syphon ([0-9,]+) (?:more|shards?) to max");
 	private static final Pattern SHARD_IN_LORE = Pattern.compile("([A-Z][A-Za-z' -]+?) Shards?\\b");
 	private static final long COST_TTL_MS = 5 * 60_000;
 
@@ -70,6 +71,20 @@ public final class AbsorbSync implements MenuFeature {
 		return null;
 	}
 
+	/** Absorbed count from an item's lore, or -1 if it doesn't say. */
+	public static int absorbed(List<String> lore, int cap) {
+		if (cap <= 0) return -1;
+		for (String line : lore) {
+			if (line.equals("Attribute Maxed!") || (line.startsWith("Attribute Level:") && line.contains("(MAX!)"))) return cap;
+			Matcher m = TO_MAX.matcher(line);
+			if (m.find()) {
+				long toMax = Items.parse(m.group(1));
+				return toMax < 0 ? -1 : (int) Math.max(0, cap - Math.min(toMax, cap));
+			}
+		}
+		return -1;
+	}
+
 	private void read(Menu menu) {
 		if (!ShardIndex.ready()) {
 			status = ShardIndex.status();
@@ -80,8 +95,8 @@ public final class AbsorbSync implements MenuFeature {
 		for (Menu.Entry e : menu.container) {
 			ShardIndex.Shard s = shardOf(e);
 			if (s == null) continue;
-			long n = e.lore().contains(MAXED) && s.cap() > 0 ? s.cap() : Items.loreNumber(e.lore(), ABSORBED);
-			if (n >= 0) found.put(s.id(), (int) Math.min(n, s.cap() > 0 ? s.cap() : n));
+			int n = absorbed(e.lore(), s.cap());
+			if (n >= 0) found.put(s.id(), n);
 		}
 		Map<String, Integer> fresh = new HashMap<>();
 		found.forEach((k, v) -> {
