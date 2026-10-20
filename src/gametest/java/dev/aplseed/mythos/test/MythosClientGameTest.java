@@ -97,8 +97,12 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 					fusionShard("Abyssal Lanternfish", "R23", 640, true),
 					fusionShard("Aero", "E3", 192, false)),
 					"Fusion plan", "2 shard types, 832 shards", "Absorb sync", "Read 1 shard");
-			check(ctx, "election", "Election, Year 512", List.of(item("Cole", "Mining Fiesta"), item("Diana", "Pet XP Buff")),
-					"Election", "Cole  41.2%", "Enchanted Mithril", "expected effect");
+			// booth items as Hypixel sends them (from a real F8 dump)
+			check(ctx, "election", "Election, Year 521", List.of(
+					item("Cole", "Year 521 Candidate", "", "Votes: 55k (3.8%)", "Last elected: 9y ago", "", "Click to vote for Cole!"),
+					item("Diana", "Year 521 Candidate", "", "Votes: 47k (3.3%)", "", "Click to vote for Diana!")),
+					"Election", "Cole  41.2%", "your items: \u25BC Enchanted Diamond", "Enchanted Mithril",
+					"More Griffin drops, unmeasured", "no known market effect");
 
 			dump(ctx);
 			shards(ctx);
