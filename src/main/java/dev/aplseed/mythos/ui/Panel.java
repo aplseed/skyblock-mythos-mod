@@ -52,21 +52,34 @@ public final class Panel {
 	public void draw(GuiGraphicsExtractor g, Font font, int menuLeft, int menuTop, int menuWidth, int screenWidth) {
 		lastDrawn = lines.stream().map(Line::text).toList();
 		if (lines.isEmpty()) return;
+		List<Line> shown = new ArrayList<>();
+		for (Line l : lines) wrap(font, l, shown);
 		int w = 0;
-		for (Line l : lines) w = Math.max(w, font.width(l.text));
-		w = Math.min(w, MAX_W) + PAD * 2;
+		for (Line l : shown) w = Math.max(w, font.width(l.text));
+		w += PAD * 2;
 		int x = menuLeft - w - 4;
 		if (x < 2) x = Math.min(menuLeft + menuWidth + 4, screenWidth - w - 2);
-		int h = lines.size() * (font.lineHeight + 1) + PAD * 2 - 1;
+		int h = shown.size() * (font.lineHeight + 1) + PAD * 2 - 1;
 		int y = Math.max(2, menuTop);
 		g.fill(x, y, x + w, y + h, 0xE0100C18);
 		g.outline(x, y, w, h, 0xFF5A3E8C);
 		int ty = y + PAD;
-		for (Line l : lines) {
-			String t = l.text;
-			if (font.width(t) > MAX_W) t = font.plainSubstrByWidth(t, MAX_W - font.width("...")) + "...";
-			g.text(font, t, x + PAD, ty, l.color, true);
+		for (Line l : shown) {
+			g.text(font, l.text, x + PAD, ty, l.color, true);
 			ty += font.lineHeight + 1;
 		}
+	}
+
+	/** Splits a line wider than MAX_W at spaces; continuation lines are indented. */
+	private static void wrap(Font font, Line l, List<Line> out) {
+		String rest = l.text;
+		while (font.width(rest) > MAX_W) {
+			String head = font.plainSubstrByWidth(rest, MAX_W);
+			int cut = head.lastIndexOf(' ');
+			if (cut <= 2) cut = head.length();     // no break after the indent: hard cut
+			out.add(new Line(rest.substring(0, cut), l.color, l.header));
+			rest = "  " + rest.substring(cut).trim();
+		}
+		out.add(new Line(rest, l.color, l.header));
 	}
 }

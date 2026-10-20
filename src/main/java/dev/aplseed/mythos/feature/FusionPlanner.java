@@ -58,7 +58,7 @@ public final class FusionPlanner implements MenuFeature {
 
 	private void recount(Menu menu) {
 		if (!ShardIndex.ready()) {
-			status = "Loading shard list...";
+			status = ShardIndex.status();
 			return;
 		}
 		pending = null;

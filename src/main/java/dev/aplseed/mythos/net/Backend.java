@@ -76,6 +76,10 @@ public final class Backend {
 				report(fail, "backend unreachable (" + err.getClass().getSimpleName() + ")");
 				return;
 			}
+			if (resp.statusCode() == 404) {
+				report(fail, "server has no " + resp.uri().getPath() + " - update skyblock-mythos and restart it");
+				return;
+			}
 			if (resp.statusCode() == 401) {
 				Minecraft.getInstance().execute(() -> {
 					if (!Mythos.config().sessionToken.isEmpty()) {

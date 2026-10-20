@@ -24,13 +24,14 @@ public final class ShardIndex {
 	private static Map<String, Shard> byName = Map.of();
 	private static Map<String, Shard> byId = Map.of();
 	private static long fetchedAt;
+	private static String error;
 
 	private ShardIndex() {}
 
 	public static void refresh(boolean force) {
 		if (!force && System.currentTimeMillis() - fetchedAt < TTL_MS) return;
 		fetchedAt = System.currentTimeMillis() - TTL_MS + 30_000;     // retry in 30 s on failure
-		Mythos.backend().get("/api/mod/shards", ShardIndex::load);
+		Mythos.backend().get("/api/mod/shards", ShardIndex::load, err -> error = err);
 	}
 
 	private static void load(JsonObject j) {
@@ -44,7 +45,13 @@ public final class ShardIndex {
 		}
 		byName = n;
 		byId = i;
+		error = null;
 		fetchedAt = System.currentTimeMillis();
+	}
+
+	/** What to show while the list isn't loaded: progress, or why it failed (retried every 30 s). */
+	public static String status() {
+		return error == null ? "Loading shard list..." : "Shard list failed: " + error;
 	}
 
 	public static boolean ready() {

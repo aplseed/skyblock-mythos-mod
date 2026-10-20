@@ -72,7 +72,7 @@ public final class AbsorbSync implements MenuFeature {
 
 	private void read(Menu menu) {
 		if (!ShardIndex.ready()) {
-			status = "Loading shard list...";
+			status = ShardIndex.status();
 			return;
 		}
 		pending = null;
