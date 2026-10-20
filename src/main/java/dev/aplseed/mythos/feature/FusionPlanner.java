@@ -65,14 +65,14 @@ public final class FusionPlanner implements MenuFeature {
 		boolean box = menu.title.contains("Hunting Box");
 		Map<String, Long> fromMenu = new HashMap<>(), c = new HashMap<>();
 		for (Menu.Entry e : menu.container) {
-			ShardIndex.Shard s = ShardIndex.byName(e.name());
+			ShardIndex.Shard s = ShardIndex.of(e);
 			if (s == null) continue;
 			long n = Items.loreNumber(e.lore(), OWNED);
 			if (n < 0 && box) n = e.count();
 			if (n > 0) fromMenu.merge(s.id(), n, Math::max);
 		}
 		for (Menu.Entry e : menu.inventory) {
-			ShardIndex.Shard s = ShardIndex.byName(e.name());
+			ShardIndex.Shard s = ShardIndex.of(e);
 			if (s != null) c.merge(s.id(), (long) e.count(), Long::sum);
 		}
 		fromMenu.forEach((k, v) -> c.merge(k, v, Long::sum));
@@ -119,7 +119,7 @@ public final class FusionPlanner implements MenuFeature {
 
 		for (List<Menu.Entry> list : List.of(menu.container, menu.inventory)) {
 			for (Menu.Entry e : list) {
-				ShardIndex.Shard s = ShardIndex.byName(e.name());
+				ShardIndex.Shard s = ShardIndex.of(e);
 				if (s == null) continue;
 				int color = fuseNames.contains(s.name()) ? 0x6055FF55 : sellByName.containsKey(s.name()) ? 0x50FFAA00 : 0;
 				if (color != 0) {
@@ -152,7 +152,7 @@ public final class FusionPlanner implements MenuFeature {
 			}
 		}
 
-		ShardIndex.Shard h = hovered == null ? null : ShardIndex.byName(hovered.name());
+		ShardIndex.Shard h = hovered == null ? null : ShardIndex.of(hovered);
 		if (h != null) {
 			panel.header(h.name() + " (" + h.rarity() + ")");
 			for (JsonObject f : fusions) {

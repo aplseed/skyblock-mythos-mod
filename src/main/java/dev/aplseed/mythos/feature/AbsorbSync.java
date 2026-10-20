@@ -18,12 +18,14 @@ import java.util.regex.Pattern;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /**
- * Attribute Menu: reads how many of each shard you've absorbed and stores it
- * on the server (/api/mod/absorb), so the web absorb tracker is never stale,
- * then shows what finishing each one costs (/api/shards/absorb).
+ * Attribute Menu and Hunting Box: reads how many of each shard you've absorbed
+ * ("Absorbed: n", or the cap for "Attribute Maxed!") and stores it on the
+ * server (/api/mod/absorb), so the web absorb tracker is never stale. In the
+ * Attribute Menu it also shows what finishing each one costs (/api/shards/absorb).
  */
 public final class AbsorbSync implements MenuFeature {
 	private static final Pattern ABSORBED = Pattern.compile("(?i)absorbed");
+	private static final String MAXED = "Attribute Maxed!";
 	private static final Pattern SHARD_IN_LORE = Pattern.compile("([A-Z][A-Za-z' -]+?) Shards?\\b");
 	private static final long COST_TTL_MS = 5 * 60_000;
 
@@ -41,7 +43,7 @@ public final class AbsorbSync implements MenuFeature {
 
 	@Override
 	public boolean matches(String title) {
-		return title.contains("Attribute");
+		return title.contains("Attribute") || title.contains("Hunting Box");
 	}
 
 	@Override
@@ -56,7 +58,7 @@ public final class AbsorbSync implements MenuFeature {
 	}
 
 	private static ShardIndex.Shard shardOf(Menu.Entry e) {
-		ShardIndex.Shard s = ShardIndex.byName(e.name());
+		ShardIndex.Shard s = ShardIndex.of(e);
 		if (s != null) return s;
 		for (String line : e.lore()) {
 			Matcher m = SHARD_IN_LORE.matcher(line);
@@ -78,7 +80,7 @@ public final class AbsorbSync implements MenuFeature {
 		for (Menu.Entry e : menu.container) {
 			ShardIndex.Shard s = shardOf(e);
 			if (s == null) continue;
-			long n = Items.loreNumber(e.lore(), ABSORBED);
+			long n = e.lore().contains(MAXED) && s.cap() > 0 ? s.cap() : Items.loreNumber(e.lore(), ABSORBED);
 			if (n >= 0) found.put(s.id(), (int) Math.min(n, s.cap() > 0 ? s.cap() : n));
 		}
 		Map<String, Integer> fresh = new HashMap<>();
@@ -86,7 +88,7 @@ public final class AbsorbSync implements MenuFeature {
 			if (!v.equals(pushed.get(k))) fresh.put(k, v);
 		});
 		if (found.isEmpty()) {
-			status = "No absorbed counts on this page";
+			status = menu.title.contains("Hunting Box") ? null : "No absorbed counts on this page";
 			return;
 		}
 		if (fresh.isEmpty()) return;
@@ -97,7 +99,8 @@ public final class AbsorbSync implements MenuFeature {
 		Mythos.backend().post("/api/mod/absorb", body, j -> {
 			pushed.putAll(fresh);
 			int changed = Json.obj(j, "changed").size();
-			status = "Read " + found.size() + " shards" + (changed > 0 ? ", " + changed + " updated" : ", all up to date");
+			status = "Read " + found.size() + " shard" + (found.size() == 1 ? "" : "s")
+					+ (changed > 0 ? ", " + changed + " updated" : ", all up to date");
 			if (changed > 0) {
 				costsAt = 0;
 				ShardIndex.refresh(true);
@@ -119,6 +122,11 @@ public final class AbsorbSync implements MenuFeature {
 	@Override
 	public void render(Menu menu, Menu.Entry hovered, GuiGraphicsExtractor g, Panel panel) {
 		if (pending != null) read(pending);
+		if (menu.title.contains("Hunting Box")) {
+			// the fusion plan owns this panel; just report the sync
+			if (status != null) panel.header("Absorb sync").line(status, Panel.GRAY);
+			return;
+		}
 		refreshCosts();
 		panel.header("Shard absorption");
 		if (status != null) panel.line(status, Panel.GRAY);

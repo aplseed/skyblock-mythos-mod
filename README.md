@@ -11,7 +11,7 @@ It doesn't repeat features covered by Skyblocker, SkyHanni, Firmament, BtrBz or 
 | | Where | What you see |
 | --- | --- | --- |
 | **Fusion planner** | Fusion Machine, Hunting Box | A side panel built from the shards you hold. It shows the server's optimal fusion plan: which fusions to run and how many times, the profit, which shards to sell raw, and how much fusing adds over selling everything raw. Shards the plan fuses are tinted green; shards it sells raw are tinted gold. |
-| **Absorb sync** | Attribute Menu | Your absorbed count for each shard is read and stored on the server, so the web absorb tracker stays current. The panel shows the cost to max everything, the cheapest shards to finish, and for the hovered shard its cost per unit and whether buying or fusing is cheaper. |
+| **Absorb sync** | Attribute Menu, Hunting Box | Your absorbed count for each shard is read and stored on the server, so the web absorb tracker stays current. In the Hunting Box, a shard marked "Attribute Maxed!" is stored at its cap. In the Attribute Menu, the panel also shows the cost to max everything, the cheapest shards to finish, and for the hovered shard its cost per unit and whether buying or fusing is cheaper. |
 | **Bazaar intel** | Any bazaar menu | For the product page, or the item under the mouse: <br>• active signals (Undervalued, Uptrend, Supply flood…) with their backtested hit rate and average return compared with buying anything at random <br>• your open position and its P&L after tax <br>• how the current and next mayor moved the item in past terms |
 | **Forge advisor** | The Forge and its recipe menus | Recipes ranked by profit per slot-hour, using your slot count, Quick Forge level and Cole. Rank badges appear on recipe items, and there's a "start this" list when a slot is free. Hovering a recipe shows its profit, cost, time, HotM requirement, which parts to forge yourself and what to buy. |
 | **Election panel** | Election booth | For every candidate, the items that rose or fell in all their past terms (measured by the server). Where nothing has been measured yet, it shows what their perks are expected to do. |
@@ -70,5 +70,6 @@ The jar is written to `build/libs/`. CI builds every push and attaches the jar t
 
 ## Known limitations
 
-- **Menu formats are inferred.** The panels find their menus by title, and the absorb, fusion and forge readers find counts by keywords in item lore ("Absorbed", "Stored"/"Owned"/"Amount", "Click to select"). If a panel shows nothing, or reads numbers wrongly, press F8 in that menu and send the dump.
+- **Some menu formats are still inferred.** The Hunting Box reader follows a real dump: shards are identified by the `(ID C28)` on their last lore line, counts come from "Owned: n Shards", and "Attribute Maxed!" marks a shard as fully absorbed. The Attribute Menu ("Absorbed"), Fusion Machine and Forge slot ("Click to select") readers are still guesses. If a panel shows nothing, or reads numbers wrongly, press F8 in that menu and send the dump.
+- **The Hunting Box planner only sees the page that's open.** It counts the shards shown on the current page plus your inventory.
 - **Shard sessions count chat messages that name a shard.** Catch messages worded in ways the patterns don't match aren't counted.

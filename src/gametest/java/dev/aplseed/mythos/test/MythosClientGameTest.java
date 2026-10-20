@@ -51,11 +51,14 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 			});
 			ctx.waitFor(mc -> !Mythos.config().sessionToken.isEmpty(), 200);
 
-			check(ctx, "fusion", "Fusion Box", List.of(
-					shard("Abyssal Lanternfish", 64, "Owned: 640"),
-					shard("Aero", 32, "Owned: 192"),
-					shard("Alligator", 16, "Owned: 256")),
-					"Fusion plan", "Fusing adds");
+			// Hunting Box items as Hypixel sends them (from a real F8 dump): plain
+			// shard name, "Owned: n Shards", "Attribute Maxed!", id on the last line
+			check(ctx, "hunting-box", "Hunting Box", List.of(
+					item("Hunting Box", "This is where all your Shards are", "stored!", "", "Shards: 3"),
+					boxShard("Abyssal Lanternfish", "R23", 640, true),
+					boxShard("Aero", "E3", 192, false),
+					boxShard("Alligator", "E6", 256, false)),
+					"Fusion plan", "3 shard types, 1088 shards", "Fusing adds", "Absorb sync", "Read 1 shard, 1 updated");
 			check(ctx, "absorb", "Attribute Menu", List.of(
 					shard("Abyssal Lanternfish", 1, "Absorbed: 5/96"),
 					shard("Aero", 1, "Absorbed: 0/64")),
@@ -90,8 +93,14 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 		return named(Items.PRISMARINE_SHARD, name + " Shard", count, lore);
 	}
 
-	private static ItemStack item(String name, String lore) {
+	private static ItemStack item(String name, String... lore) {
 		return named(Items.PAPER, name, 1, lore);
+	}
+
+	private static ItemStack boxShard(String name, String id, int owned, boolean maxed) {
+		return named(Items.PRISMARINE_SHARD, name, 1, "Some Family", "", "Owned: " + owned + " Shards",
+				maxed ? "Attribute Maxed!" : "", "", "Right-click to convert to an item!", "",
+				"RARE FOREST SHARD (ID " + id + ")");
 	}
 
 	private static void open(Minecraft mc, String title, List<ItemStack> items) {

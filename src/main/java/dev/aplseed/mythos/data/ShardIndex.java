@@ -2,10 +2,13 @@ package dev.aplseed.mythos.data;
 
 import com.google.gson.JsonObject;
 import dev.aplseed.mythos.Mythos;
+import dev.aplseed.mythos.menu.Menu;
 import dev.aplseed.mythos.net.Json;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Every shard by in-game name with net sell prices and absorbed counts (/api/mod/shards). */
 public final class ShardIndex {
@@ -17,6 +20,7 @@ public final class ShardIndex {
 	}
 
 	private static final long TTL_MS = 5 * 60_000;
+	private static final Pattern ID_LINE = Pattern.compile("SHARD \\(ID ([A-Z]+\\d+)\\)");
 	private static Map<String, Shard> byName = Map.of();
 	private static Map<String, Shard> byId = Map.of();
 	private static long fetchedAt;
@@ -55,6 +59,21 @@ public final class ShardIndex {
 		if (k.endsWith(" shards")) k = k.substring(0, k.length() - 7);
 		else if (k.endsWith(" shard")) k = k.substring(0, k.length() - 6);
 		return byName.get(k.trim());
+	}
+
+	/**
+	 * The shard a menu item shows. Hunting Box items name the shard ("Locust")
+	 * and end their lore with "COMMON FOREST SHARD (ID C28)"; the id wins.
+	 */
+	public static Shard of(Menu.Entry e) {
+		for (int i = e.lore().size() - 1; i >= 0; i--) {
+			Matcher m = ID_LINE.matcher(e.lore().get(i));
+			if (m.find()) {
+				Shard s = byId(m.group(1));
+				if (s != null) return s;
+			}
+		}
+		return byName(e.name());
 	}
 
 	public static Shard byId(String id) {
