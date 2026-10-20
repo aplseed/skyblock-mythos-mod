@@ -39,6 +39,7 @@ public final class ForgeAdvisor implements MenuFeature {
 	private String settingsKey = "";
 	private int freeSlots = -1;
 	private boolean showsRecipes;
+	private List<String> running = List.of();
 
 	@Override
 	public boolean enabled() {
@@ -76,25 +77,36 @@ public final class ForgeAdvisor implements MenuFeature {
 		return s.toLowerCase(Locale.ROOT).trim();
 	}
 
-	/** The Forge: free slots read "Slot #1 ... Click to select a process!". Recipes: "Items Required ... Duration: 5h 36m". */
+	/**
+	 * The Forge: free slots read "Slot #1 ... Click to select a process!", busy ones are the
+	 * product with "Currently making: X / Time Remaining: 41m 43s". Recipes: "Items Required ... Duration: 5h 36m".
+	 */
 	@Override
 	public void update(Menu menu) {
 		int free = 0;
 		boolean recipes = false;
+		List<String> busy = new ArrayList<>();
 		for (Menu.Entry e : menu.container) {
 			if (e.name().startsWith("Slot #") && e.lore().contains("Click to select a process!")) free++;
+			if (e.lore().stream().anyMatch(l -> l.startsWith("Currently making:"))) {
+				String left = e.lore().stream().filter(l -> l.startsWith("Time Remaining:")).findFirst()
+						.map(l -> l.substring("Time Remaining:".length()).trim()).orElse("done");
+				busy.add(e.name() + "  " + left);
+			}
 			if (e.lore().contains("Items Required") && e.lore().stream().anyMatch(l -> l.startsWith("Duration:"))) recipes = true;
 		}
 		freeSlots = free;
 		showsRecipes = recipes;
+		running = busy;
 	}
 
 	/**
 	 * Rank of a menu item: by SkyBlock id (recipe items carry one), else by name.
-	 * Category tiles ("Refining" is {REFINED_MITHRIL}, "Click to view!") have none.
+	 * Category tiles ("Refining" is {REFINED_MITHRIL}, "Click to view!") and running
+	 * processes (the product itself, "Currently making: ...") have none.
 	 */
 	private Integer rankOf(Menu.Entry e) {
-		if (e.lore().contains("Click to view!")) return null;
+		if (e.lore().contains("Click to view!") || e.lore().stream().anyMatch(l -> l.startsWith("Currently making:"))) return null;
 		Integer r = e.id().isEmpty() ? null : rankById.get(e.id());
 		return r != null ? r : rankByName.get(norm(e.name()));
 	}
@@ -128,6 +140,7 @@ public final class ForgeAdvisor implements MenuFeature {
 			}
 			panel.line("Overall:", Panel.GRAY);
 		}
+		for (String r : running) panel.line("Forging: " + r, Panel.GRAY);
 		if (freeSlots > 0) panel.line(freeSlots + " free slot" + (freeSlots > 1 ? "s" : "") + " - start:", Panel.AQUA);
 		for (int i = 0; i < Math.min(6, rows.size()); i++) {
 			JsonObject r = rows.get(i);

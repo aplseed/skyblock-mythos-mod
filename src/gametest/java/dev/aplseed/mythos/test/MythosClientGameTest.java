@@ -70,16 +70,21 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 					attribute("Air Elemental X", "Aero", "E3", "Attribute Level: 10 (MAX!)")),
 					"Shard absorption", "To max everything", "Read 2 shards");
 			absorbedArithmetic();
-			check(ctx, "bazaar", "Mining ➜ Enchanted Diamond", List.of(item("Enchanted Diamond", "Buy price: 151.2")),
+			check(ctx, "bazaar", "Diamond ➜ Enchanted Diamond", List.of(item("Buy Instantly", "Enchanted Diamond", "", "Price per unit: 1,340 coins")),
 					"Enchanted Diamond", "Undervalued", "64% right", "Held 640", "Cole (now)");
 			// Forge menus as Hypixel sends them (from real F8 dumps)
 			check(ctx, "forge", "The Forge", List.of(
+					withId(item("Refined Mithril", "Currently making: Refined Mithril", "Time Remaining: 41m 43s"), "REFINED_MITHRIL"),
 					item("Slot #1", "View and start forge processes", "using the materials that you have.", "",
 							"Click to select a process!"),
 					item("Slot #2", "View and start forge processes", "using the materials that you have.", "",
 							"Click to select a process!"),
 					item("Forge Recipes", "View all Forge Recipes and their", "requirements to unlock.", "", "Click to view!")),
-					"Forge (7 slots", "2 free slots", "#1 Refined Mithril");
+					"Forge (7 slots", "Forging: Refined Mithril  41m 43s", "2 free slots", "#1 Refined Mithril");
+			// the running process isn't a suggestion
+			ctx.runOnClient(mc -> {
+				if (String.join("\n", Panel.lastDrawn()).contains("Best here")) failures.add("forge: running slot listed as a suggestion");
+			});
 			check(ctx, "forge-refining", "Refining", List.of(
 					withId(item("Refined Diamond", "EPIC", "", "Items Required", "Enchanted Diamond Block x2", "",
 							"Duration: 5h 36m", "", "Click to select!"), "REFINED_DIAMOND"),
