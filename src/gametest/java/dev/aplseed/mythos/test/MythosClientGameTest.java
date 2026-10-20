@@ -70,6 +70,7 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 					attribute("Air Elemental X", "Aero", "E3", "Attribute Level: 10 (MAX!)")),
 					"Shard absorption", "To max everything", "Read 2 shards");
 			absorbedArithmetic();
+			absorbClick(ctx);
 			check(ctx, "bazaar", "Diamond ➜ Enchanted Diamond", List.of(item("Buy Instantly", "Enchanted Diamond", "", "Price per unit: 1,340 coins")),
 					"Enchanted Diamond", "Undervalued", "64% right", "Held 640", "Cole (now)");
 			// Forge menus as Hypixel sends them (from real F8 dumps)
@@ -146,6 +147,27 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 		lore.addAll(List.of(progress));
 		lore.addAll(List.of("", "Left-Click to open!"));
 		return named(Items.PRISMARINE_SHARD, name, 1, lore.toArray(String[]::new));
+	}
+
+	/** Clicking a "Cheapest to finish" line copies the amount still needed (and runs /bz). */
+	private void absorbClick(ClientGameTestContext ctx) {
+		ctx.runOnClient(mc -> open(mc, "(1/12) Attribute Menu", List.of(item("Attribute Menu", "Syphon Shards"))));
+		ctx.waitTicks(40);
+		List<Panel.Hit> hits = ctx.computeOnClient(mc -> Panel.hits());
+		if (hits.isEmpty()) {
+			failures.add("absorb click: no clickable lines");
+		} else {
+			Panel.Hit h = hits.get(0);
+			Mythos.LOG.info("[gametest] first absorb link: {}", h.hint());
+			ctx.runOnClient(mc -> mc.keyboardHandler.setClipboard(""));
+			boolean clicked = ctx.computeOnClient(mc -> Panel.click(h.x() + 2, h.y() + 2));
+			String clip = ctx.computeOnClient(mc -> mc.keyboardHandler.getClipboard());
+			if (!clicked || !h.hint().startsWith("Click: /bz ") || !h.hint().contains("copies " + clip) || clip.isEmpty()) {
+				failures.add("absorb click: clicked=" + clicked + " hint=" + h.hint() + " clipboard=" + clip);
+			}
+		}
+		ctx.runOnClient(mc -> mc.setScreen(null));
+		ctx.waitTicks(5);
 	}
 
 	/** The count rules, on lore lines copied from a real Attribute Menu dump. */

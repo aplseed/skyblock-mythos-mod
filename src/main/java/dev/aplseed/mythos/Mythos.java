@@ -82,6 +82,18 @@ public final class Mythos implements ClientModInitializer {
 				Component.literal(title), Component.literal(body));
 	}
 
+	/**
+	 * Opens the bazaar searching for `query` ("/bz Solar Shard") and puts `amount` on the
+	 * clipboard, ready to paste into the buy order. One click, one command - nothing automated.
+	 */
+	public static void bazaarSearch(String query, long amount) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.getConnection() == null) return;
+		if (amount > 0) mc.keyboardHandler.setClipboard(Long.toString(amount));
+		mc.getConnection().sendCommand("bz " + query);
+		if (amount > 0) toast("/bz " + query, "Copied " + amount + " to the clipboard");
+	}
+
 	public static void toggleOverlays() {
 		config.overlays = !config.overlays;
 		config.save();

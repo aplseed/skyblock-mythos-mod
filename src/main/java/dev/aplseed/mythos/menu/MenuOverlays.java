@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -29,6 +30,9 @@ public final class MenuOverlays {
 			ScreenEvents.afterTick(screen).register(s -> open.tick());
 			ScreenEvents.afterExtract(screen).register((s, g, mx, my, delta) -> open.render(g, mx, my));
 			ScreenEvents.remove(screen).register(s -> open.close());
+			// a left click on a panel link runs it instead of reaching the menu
+			ScreenMouseEvents.allowMouseClick(screen).register((s, click) ->
+					click.button() != 0 || !Mythos.config().overlays || !Panel.click(click.x(), click.y()));
 			ScreenKeyboardEvents.afterKeyPress(screen).register((s, key) -> {
 				if (Mythos.DUMP_KEY.matches(key)) MenuDump.dump(new Menu(acs));
 				else if (Mythos.OVERLAY_KEY.matches(key)) Mythos.toggleOverlays();
@@ -65,10 +69,11 @@ public final class MenuOverlays {
 			Menu.Entry hovered = menu.at(mx, my);
 			for (MenuFeature f : active) f.render(menu, hovered, g, panel);
 			Screen s = screen;
-			panel.draw(g, Minecraft.getInstance().font, menu.left(), menu.top(), menu.width(), s.width);
+			panel.draw(g, Minecraft.getInstance().font, menu.left(), menu.top(), menu.width(), s.width, mx, my);
 		}
 
 		void close() {
+			Panel.clear();
 			for (MenuFeature f : active) f.closed();
 		}
 	}

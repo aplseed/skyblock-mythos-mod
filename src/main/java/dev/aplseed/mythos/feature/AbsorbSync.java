@@ -76,6 +76,18 @@ public final class AbsorbSync implements MenuFeature {
 		return null;
 	}
 
+	/** Click: "/bz <name> Shard" and the amount still needed on the clipboard. */
+	private static Runnable buy(JsonObject cost) {
+		String name = Json.str(cost, "name", "");
+		long left = (long) Json.num(cost, "remaining", 0);
+		return () -> Mythos.bazaarSearch(name + " Shard", left);
+	}
+
+	private static String buyHint(JsonObject cost) {
+		String hint = "Click: /bz " + Json.str(cost, "name", "") + " Shard, copies " + (long) Json.num(cost, "remaining", 0);
+		return "buy".equals(Json.str(cost, "method", "buy")) ? hint : hint + " (fusing is cheaper)";
+	}
+
 	/** Absorbed count from an item's lore, or -1 if it doesn't say. */
 	public static int absorbed(List<String> lore, int cap) {
 		if (cap <= 0) return -1;
@@ -160,8 +172,9 @@ public final class AbsorbSync implements MenuFeature {
 			open.sort((a, b) -> Double.compare(Json.num(a, "cost_remaining", 0), Json.num(b, "cost_remaining", 0)));
 			if (!open.isEmpty()) panel.line("Cheapest to finish:", Panel.GRAY);
 			for (JsonObject o : open.subList(0, Math.min(6, open.size()))) {
-				panel.line(Json.str(o, "name", "?") + "  " + (int) Json.num(o, "remaining", 0) + " left  "
-						+ Fmt.coins(Json.num(o, "cost_remaining", 0)) + " (" + Json.str(o, "method", "") + ")", Panel.GREEN);
+				int left = (int) Json.num(o, "remaining", 0);
+				panel.link(Json.str(o, "name", "?") + "  " + left + " left  " + Fmt.coins(Json.num(o, "cost_remaining", 0))
+						+ " (" + Json.str(o, "method", "") + ")", Panel.GREEN, buyHint(o), buy(o));
 			}
 		}
 		ShardIndex.Shard h = hovered == null ? null : shardOf(hovered);
@@ -173,7 +186,7 @@ public final class AbsorbSync implements MenuFeature {
 				panel.line("Maxed", Panel.GREEN);
 			} else if (Json.num(c, "unit_cost", -1) >= 0) {
 				panel.line(Fmt.coins(Json.num(c, "unit_cost", 0)) + " each by " + Json.str(c, "method", "?"), Panel.GRAY);
-				panel.line("Finish: " + Fmt.coins(Json.num(c, "cost_remaining", 0)), Panel.GOLD);
+				panel.link("Finish: " + Fmt.coins(Json.num(c, "cost_remaining", 0)) + "  (click to buy)", Panel.GOLD, buyHint(c), buy(c));
 			} else {
 				panel.line("Not obtainable on the bazaar", Panel.DARK);
 			}
