@@ -1,0 +1,33 @@
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Latest Fabric versions (for reference)
+        run: |
+          for p in net/fabricmc/fabric-loom/net.fabricmc.fabric-loom.gradle.plugin net/fabricmc/fabric-loader net/fabricmc/fabric-api/fabric-api; do
+            echo "== $p"; curl -s https://maven.fabricmc.net/$p/maven-metadata.xml | grep -oE '<(latest|release)>[^<]+' | sort -u
+          done
+          curl -s https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/maven-metadata.xml | grep -oE '[0-9.]+\+26\.1\.2' | tail -3
+      - name: Build
+        run: ./gradlew build --stacktrace
+      - name: API probe
+        if: always() && hashFiles('.github/probe/probe.sh') != ''
+        run: bash .github/probe/probe.sh
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: mythos-jar
+          path: build/libs/*.jar

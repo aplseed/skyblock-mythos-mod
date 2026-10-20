@@ -1,0 +1,19 @@
+{
+	"schemaVersion": 1,
+	"id": "mythos",
+	"version": "${version}",
+	"name": "Mythos",
+	"description": "Hypixel SkyBlock decisions in game, backed by a skyblock-mythos server: fusion plans, absorb costs, forge ranking, market signals and mayor effects where you need them.",
+	"authors": ["aplseed"],
+	"license": "MIT",
+	"environment": "client",
+	"entrypoints": {
+		"client": ["dev.aplseed.mythos.Mythos"]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.1",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
