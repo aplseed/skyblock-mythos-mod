@@ -1,5 +1,6 @@
 package dev.aplseed.mythos.test;
 
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import dev.aplseed.mythos.Mythos;
 import dev.aplseed.mythos.feature.ShardTracker;
 import dev.aplseed.mythos.ui.Panel;
@@ -40,8 +41,14 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 		});
 		try (TestSingleplayerContext world = ctx.worldBuilder().create()) {
 			ctx.waitTicks(20);
-			ctx.runOnClient(mc -> ClientCommands.getActiveDispatcher().execute("myth login tester password123",
-					(FabricClientCommandSource) mc.getConnection().getSuggestionsProvider()));
+			ctx.runOnClient(mc -> {
+				try {
+					ClientCommands.getActiveDispatcher().execute("myth login tester password123",
+							(FabricClientCommandSource) mc.getConnection().getSuggestionsProvider());
+				} catch (CommandSyntaxException e) {
+					throw new AssertionError("/myth login didn't parse", e);
+				}
+			});
 			ctx.waitFor(mc -> !Mythos.config().sessionToken.isEmpty(), 200);
 
 			check(ctx, "fusion", "Fusion Box", List.of(
