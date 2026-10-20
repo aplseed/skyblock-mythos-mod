@@ -53,10 +53,14 @@ public final class BazaarPanel implements MenuFeature {
 		return c == null ? null : c.data;
 	}
 
+	/**
+	 * The hovered product, else the product page in the title ("Mining ➜ Enchanted Diamond").
+	 * Category tiles ("Click to view products!") stand for several products and are skipped.
+	 */
 	private static String productOf(Menu menu, Menu.Entry hovered) {
-		if (hovered != null) {
+		if (hovered != null && !hovered.lore().contains("Click to view products!")) {
 			String id = BazaarNames.id(hovered.name());
-			if (id == null && hovered.playerSlot() && !hovered.id().isEmpty()) id = BazaarNames.id(hovered.id());
+			if (id == null && !hovered.id().isEmpty()) id = hovered.id();
 			if (id != null) return id;
 		}
 		int arrow = menu.title.lastIndexOf('➜');
