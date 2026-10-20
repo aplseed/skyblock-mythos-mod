@@ -148,6 +148,8 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 			ShardTracker.onChat(Component.literal("You charmed an Aero and captured its Shard."), false);
 			ShardTracker.onChat(Component.literal("You caught a Not A Real Shard!"), false);
 		});
+		// the first catch fetches the saved farms in the background
+		ctx.waitFor(mc -> String.join("\n", ShardTracker.summary()).contains("vs saved"), 100);
 		List<String> s = ctx.computeOnClient(mc -> ShardTracker.summary());
 		Mythos.LOG.info("[gametest] shard session:\n    {}", String.join("\n    ", s));
 		String all = String.join("\n", s);
