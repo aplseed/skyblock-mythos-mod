@@ -18,11 +18,13 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContex
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.ContainerScreen;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.item.component.ItemLore;
 
 /**
@@ -70,10 +72,31 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 			absorbedArithmetic();
 			check(ctx, "bazaar", "Mining ➜ Enchanted Diamond", List.of(item("Enchanted Diamond", "Buy price: 151.2")),
 					"Enchanted Diamond", "Undervalued", "64% right", "Held 640", "Cole (now)");
+			// Forge menus as Hypixel sends them (from real F8 dumps)
 			check(ctx, "forge", "The Forge", List.of(
-					item("Slot #1", "Click to select an item to forge!"),
-					item("Refined Mithril", "Forge time: 6h")),
-					"Forge (7 slots", "1 free slot", "#1 Refined Mithril");
+					item("Slot #1", "View and start forge processes", "using the materials that you have.", "",
+							"Click to select a process!"),
+					item("Slot #2", "View and start forge processes", "using the materials that you have.", "",
+							"Click to select a process!"),
+					item("Forge Recipes", "View all Forge Recipes and their", "requirements to unlock.", "", "Click to view!")),
+					"Forge (7 slots", "2 free slots", "#1 Refined Mithril");
+			check(ctx, "forge-refining", "Refining", List.of(
+					withId(item("Refined Diamond", "EPIC", "", "Items Required", "Enchanted Diamond Block x2", "",
+							"Duration: 5h 36m", "", "Click to select!"), "REFINED_DIAMOND"),
+					withId(item("Refined Mithril", "EPIC DWARVEN METAL", "", "Items Required", "Enchanted Mithril x160", "",
+							"Duration: 4h 12m", "", "Click to select!"), "REFINED_MITHRIL")),
+					"Best here:", "#1 Refined Mithril");
+			// Select Process tiles carry recipe ids ("Refining" is REFINED_MITHRIL) but aren't recipes
+			check(ctx, "forge-select", "Select Process (Slot #1)", List.of(
+					withId(item("Refining", "Refine your ores into more valuable", "ores.", "", "Click to view!"), "REFINED_MITHRIL")),
+					"Forge (7 slots");
+			checkNoPanel(ctx, "pets-not-forge", "Pets", List.of(item("Golden Dragon", "Level 100", "Click to summon!")));
+			// Fusion Box items (from a real F8 dump): "Hunting Box: n" and "(Max level reached)"
+			check(ctx, "fusion-box", "Fusion Box", List.of(
+					item("Fusion Box", "To begin a fusion you need to select", "", "Shards: 2"),
+					fusionShard("Abyssal Lanternfish", "R23", 640, true),
+					fusionShard("Aero", "E3", 192, false)),
+					"Fusion plan", "2 shard types, 832 shards", "Absorb sync", "Read 1 shard");
 			check(ctx, "election", "Election, Year 512", List.of(item("Cole", "Mining Fiesta"), item("Diana", "Pet XP Buff")),
 					"Election", "Cole  41.2%", "Enchanted Mithril", "expected effect");
 
@@ -92,6 +115,20 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 		for (String l : lore) lines.add(Component.literal(l));
 		s.set(DataComponents.LORE, new ItemLore(lines));
 		return s;
+	}
+
+	private static ItemStack withId(ItemStack s, String id) {
+		CompoundTag tag = new CompoundTag();
+		tag.putString("id", id);
+		s.set(DataComponents.CUSTOM_DATA, CustomData.of(tag));
+		return s;
+	}
+
+	private static ItemStack fusionShard(String name, String id, int inBox, boolean maxed) {
+		return named(Items.PRISMARINE_SHARD, name, 1, "Some Family", "", "Source: The Garden",
+				"Hunting Box: " + inBox, "Required to fuse: 5", "", "Some Attribute (Farming)",
+				maxed ? "Your Attribute: Level 10" : "Your Attribute: Level 1", maxed ? "(Max level reached)" : "", "",
+				"RARE FOREST SHARD (ID " + id + ")", "", "Click to fuse 5!");
 	}
 
 	private static ItemStack attribute(String name, String shard, String id, String... progress) {
@@ -142,6 +179,16 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 		String all = String.join("\n", drawn);
 		for (String e : expect) if (!all.contains(e)) failures.add(name + ": panel lacks \"" + e + "\"");
 		ctx.takeScreenshot("mythos-" + name);
+		ctx.runOnClient(mc -> mc.setScreen(null));
+		ctx.waitTicks(5);
+	}
+
+	private void checkNoPanel(ClientGameTestContext ctx, String name, String title, List<ItemStack> items) {
+		ctx.runOnClient(mc -> open(mc, title, items));
+		ctx.waitTicks(40);
+		List<String> drawn = ctx.computeOnClient(mc -> Panel.lastDrawn());
+		Mythos.LOG.info("[gametest] {} panel (should be empty): {}", name, drawn);
+		if (!drawn.isEmpty()) failures.add(name + ": expected no panel, drew " + drawn);
 		ctx.runOnClient(mc -> mc.setScreen(null));
 		ctx.waitTicks(5);
 	}

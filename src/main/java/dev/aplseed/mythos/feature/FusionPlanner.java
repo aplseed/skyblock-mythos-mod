@@ -18,12 +18,13 @@ import java.util.regex.Pattern;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /**
- * Fusion Machine / Hunting Box: counts the shards you hold and shows the
+ * Fusion Box / Hunting Box: counts the shards you hold and shows the
  * server's optimal fusion plan (/api/shards/optimize-inventory) beside the menu.
  * Shards the plan fuses are tinted green, shards it sells raw gold.
  */
 public final class FusionPlanner implements MenuFeature {
-	private static final Pattern OWNED = Pattern.compile("(?i)\\b(stored|owned|amount|you have|quantity)\\b");
+	// Hunting Box: "Owned: 9 Shards"; Fusion Box: "Hunting Box: 9"
+	private static final Pattern OWNED = Pattern.compile("^(Owned|Hunting Box):");
 
 	private Menu pending;
 	private Map<String, Long> counts = Map.of();

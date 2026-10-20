@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /**
- * Attribute Menu and Hunting Box: works out how many of each shard you've
+ * Attribute Menu, Hunting Box and Fusion Box: works out how many of each shard you've
  * absorbed and stores it on the server (/api/mod/absorb), so the web absorb
  * tracker is never stale. The game shows no count directly: "Attribute Level:
  * 10 (MAX!)" / "Attribute Maxed!" mean the cap, otherwise it's the cap minus
@@ -44,7 +44,12 @@ public final class AbsorbSync implements MenuFeature {
 
 	@Override
 	public boolean matches(String title) {
-		return title.contains("Attribute") || title.contains("Hunting Box");
+		return title.contains("Attribute") || box(title);
+	}
+
+	/** Hunting Box and Fusion Box only show maxed attributes; the fusion plan owns their panel. */
+	private static boolean box(String title) {
+		return title.contains("Hunting Box") || title.contains("Fusion Box");
 	}
 
 	@Override
@@ -75,7 +80,8 @@ public final class AbsorbSync implements MenuFeature {
 	public static int absorbed(List<String> lore, int cap) {
 		if (cap <= 0) return -1;
 		for (String line : lore) {
-			if (line.equals("Attribute Maxed!") || (line.startsWith("Attribute Level:") && line.contains("(MAX!)"))) return cap;
+			if (line.equals("Attribute Maxed!") || line.equals("(Max level reached)")
+					|| (line.startsWith("Attribute Level:") && line.contains("(MAX!)"))) return cap;
 			Matcher m = TO_MAX.matcher(line);
 			if (m.find()) {
 				long toMax = Items.parse(m.group(1));
@@ -103,7 +109,7 @@ public final class AbsorbSync implements MenuFeature {
 			if (!v.equals(pushed.get(k))) fresh.put(k, v);
 		});
 		if (found.isEmpty()) {
-			status = menu.title.contains("Hunting Box") ? null : "No absorbed counts on this page";
+			status = box(menu.title) ? null : "No absorbed counts on this page";
 			return;
 		}
 		if (fresh.isEmpty()) return;
@@ -137,7 +143,7 @@ public final class AbsorbSync implements MenuFeature {
 	@Override
 	public void render(Menu menu, Menu.Entry hovered, GuiGraphicsExtractor g, Panel panel) {
 		if (pending != null) read(pending);
-		if (menu.title.contains("Hunting Box")) {
+		if (box(menu.title)) {
 			// the fusion plan owns this panel; just report the sync
 			if (status != null) panel.header("Absorb sync").line(status, Panel.GRAY);
 			return;

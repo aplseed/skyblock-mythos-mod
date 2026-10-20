@@ -8,10 +8,13 @@ import dev.aplseed.mythos.menu.MenuFeature;
 import dev.aplseed.mythos.net.Json;
 import dev.aplseed.mythos.ui.Panel;
 import dev.aplseed.mythos.util.Fmt;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
@@ -23,11 +26,19 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 public final class ForgeAdvisor implements MenuFeature {
 	private static final long TTL_MS = 10 * 60_000;
 
+	// Recipe categories under Select Process; several ("Tools", "Pets", "Other") are also
+	// titles of unrelated menus, so those only count once the menu shows recipes.
+	private static final Set<String> CATEGORIES = Set.of("Refining", "Forging", "Tools", "Gear",
+			"Reforge Stones", "Drill Parts", "Perfect Gemstones", "Pets", "Other");
+	private static final Pattern PAGE = Pattern.compile("^\\(\\d+/\\d+\\) ");
+
 	private List<JsonObject> rows = List.of();
-	private final Map<String, Integer> rank = new HashMap<>();
+	private final Map<String, Integer> rankById = new HashMap<>();
+	private final Map<String, Integer> rankByName = new HashMap<>();
 	private long fetchedAt;
 	private String settingsKey = "";
 	private int freeSlots = -1;
+	private boolean showsRecipes;
 
 	@Override
 	public boolean enabled() {
@@ -36,7 +47,11 @@ public final class ForgeAdvisor implements MenuFeature {
 
 	@Override
 	public boolean matches(String title) {
-		return title.contains("Forge") || title.contains("Select Process") || title.startsWith("Refin");
+		return title.equals("The Forge") || title.startsWith("Select Process") || isCategory(title);
+	}
+
+	private static boolean isCategory(String title) {
+		return CATEGORIES.contains(PAGE.matcher(title).replaceFirst(""));
 	}
 
 	private void refresh() {
@@ -48,8 +63,12 @@ public final class ForgeAdvisor implements MenuFeature {
 		Mythos.backend().get("/api/forge?compact=1&slots=" + c.forgeSlots + "&qf=" + c.quickForgeLevel
 				+ "&cole=" + (c.coleMayor ? 1 : 0), j -> {
 			rows = Json.objs(j, "data");
-			rank.clear();
-			for (int i = 0; i < rows.size(); i++) rank.put(norm(Json.str(rows.get(i), "name", "")), i);
+			rankById.clear();
+			rankByName.clear();
+			for (int i = 0; i < rows.size(); i++) {
+				rankById.putIfAbsent(Json.str(rows.get(i), "id", ""), i);
+				rankByName.putIfAbsent(norm(Json.str(rows.get(i), "name", "")), i);
+			}
 		});
 	}
 
@@ -57,29 +76,32 @@ public final class ForgeAdvisor implements MenuFeature {
 		return s.toLowerCase(Locale.ROOT).trim();
 	}
 
+	/** The Forge: free slots read "Slot #1 ... Click to select a process!". Recipes: "Items Required ... Duration: 5h 36m". */
 	@Override
 	public void update(Menu menu) {
 		int free = 0;
+		boolean recipes = false;
 		for (Menu.Entry e : menu.container) {
-			if (e.name().startsWith("Slot #") || e.name().contains("Empty")) {
-				for (String l : e.lore()) {
-					if (l.toLowerCase(Locale.ROOT).contains("click to select")) {
-						free++;
-						break;
-					}
-				}
-			}
+			if (e.name().startsWith("Slot #") && e.lore().contains("Click to select a process!")) free++;
+			if (e.lore().contains("Items Required") && e.lore().stream().anyMatch(l -> l.startsWith("Duration:"))) recipes = true;
 		}
 		freeSlots = free;
+		showsRecipes = recipes;
 	}
 
-	private JsonObject rowFor(String name) {
-		Integer i = rank.get(norm(name));
-		return i == null ? null : rows.get(i);
+	/**
+	 * Rank of a menu item: by SkyBlock id (recipe items carry one), else by name.
+	 * Category tiles ("Refining" is {REFINED_MITHRIL}, "Click to view!") have none.
+	 */
+	private Integer rankOf(Menu.Entry e) {
+		if (e.lore().contains("Click to view!")) return null;
+		Integer r = e.id().isEmpty() ? null : rankById.get(e.id());
+		return r != null ? r : rankByName.get(norm(e.name()));
 	}
 
 	@Override
 	public void render(Menu menu, Menu.Entry hovered, GuiGraphicsExtractor g, Panel panel) {
+		if (isCategory(menu.title) && !showsRecipes) return;
 		refresh();
 		Config c = Mythos.config();
 		panel.header("Forge (" + c.forgeSlots + " slots, QF " + c.quickForgeLevel + (c.coleMayor ? ", Cole" : "") + ")");
@@ -88,12 +110,23 @@ public final class ForgeAdvisor implements MenuFeature {
 			return;
 		}
 		var font = Minecraft.getInstance().font;
+		List<Menu.Entry> here = new ArrayList<>();
 		for (Menu.Entry e : menu.container) {
-			Integer r = rank.get(norm(e.name()));
+			Integer r = rankOf(e);
 			if (r == null) continue;
-			String badge = "#" + (r + 1);
+			here.add(e);
 			int x = menu.slotX(e.slot()), y = menu.slotY(e.slot());
-			g.text(font, badge, x, y, r < 3 ? Panel.GOLD : Panel.GRAY, true);
+			g.text(font, "#" + (r + 1), x, y, r < 3 ? Panel.GOLD : Panel.GRAY, true);
+		}
+		if (!here.isEmpty()) {
+			here.sort((a, b) -> Integer.compare(rankOf(a), rankOf(b)));
+			panel.line("Best here:", Panel.AQUA);
+			for (Menu.Entry e : here.subList(0, Math.min(4, here.size()))) {
+				JsonObject r = rows.get(rankOf(e));
+				panel.line("#" + (rankOf(e) + 1) + " " + e.name() + "  " + Fmt.coins(Json.num(r, "opt_slot_pph", 0))
+						+ "/slot-h" + gradeOf(r), Panel.AQUA);
+			}
+			panel.line("Overall:", Panel.GRAY);
 		}
 		if (freeSlots > 0) panel.line(freeSlots + " free slot" + (freeSlots > 1 ? "s" : "") + " - start:", Panel.AQUA);
 		for (int i = 0; i < Math.min(6, rows.size()); i++) {
@@ -101,9 +134,10 @@ public final class ForgeAdvisor implements MenuFeature {
 			panel.line("#" + (i + 1) + " " + Json.str(r, "name", "?") + "  " + Fmt.coins(Json.num(r, "opt_slot_pph", 0))
 					+ "/slot-h  " + Fmt.hours(Json.num(r, "opt_time", 0)) + gradeOf(r), i < 3 ? Panel.GOLD : Panel.WHITE);
 		}
-		JsonObject h = hovered == null ? null : rowFor(hovered.name());
-		if (h != null) {
-			panel.header("#" + (rank.get(norm(hovered.name())) + 1) + " " + Json.str(h, "name", ""));
+		Integer hr = hovered == null ? null : rankOf(hovered);
+		if (hr != null) {
+			JsonObject h = rows.get(hr);
+			panel.header("#" + (hr + 1) + " " + Json.str(h, "name", ""));
 			panel.line("Profit " + Fmt.signed(Json.num(h, "opt_profit", 0)) + " on " + Fmt.coins(Json.num(h, "opt_cost", 0)), Panel.GREEN);
 			panel.line(Fmt.coins(Json.num(h, "opt_slot_pph", 0)) + " per slot-hour, done in " + Fmt.hours(Json.num(h, "opt_time", 0)), Panel.WHITE);
 			String hotm = Json.str(h, "hotm", "");
