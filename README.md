@@ -1,6 +1,6 @@
 # Mythos
 
-Client-side Fabric mod for Hypixel SkyBlock. It's built for **Minecraft 26.1.2**, **Fabric Loader 0.19.5** and Fabric API 0.155.3+26.1.2.
+Client-side Fabric mod for Hypixel SkyBlock. It's built for **Minecraft 26.2**, **Fabric Loader 0.19.5** and Fabric API 0.161.0+26.2.
 
 Mythos is the in-game half of [skyblock-mythos](https://github.com/aplseed/skyblock-mythos). The server does the work: fusion optimisation, absorb costs, forge ranking, backtested market signals, mayor effects and tax-aware P&L. The mod reads what only the game client can see, which is the open menu, your inventory and chat. It shows the server's answer next to the menu where you're making the decision.
 
