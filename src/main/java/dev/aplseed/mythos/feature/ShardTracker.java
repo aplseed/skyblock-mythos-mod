@@ -128,7 +128,7 @@ public final class ShardTracker {
 	public static void renderHud(GuiGraphicsExtractor g) {
 		if (start == 0 || !Mythos.config().shardTracker) return;
 		Minecraft mc = Minecraft.getInstance();
-		if (mc.options.hideGui) return;
+		if (mc.gui.hud.isHidden()) return;
 		Font font = mc.font;
 		List<String> lines = summary();
 		int w = 0;

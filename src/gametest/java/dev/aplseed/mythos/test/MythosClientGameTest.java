@@ -166,7 +166,7 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 				failures.add("absorb click: clicked=" + clicked + " hint=" + h.hint() + " clipboard=" + clip);
 			}
 		}
-		ctx.runOnClient(mc -> mc.setScreen(null));
+		ctx.runOnClient(mc -> mc.gui.setScreen(null));
 		ctx.waitTicks(5);
 	}
 
@@ -198,7 +198,7 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 		SimpleContainer box = new SimpleContainer(54);
 		for (int i = 0; i < items.size(); i++) box.setItem(10 + i, items.get(i));
 		ChestMenu menu = ChestMenu.sixRows(1000, mc.player.getInventory(), box);
-		mc.setScreen(new ContainerScreen(menu, mc.player.getInventory(), Component.literal(title)));
+		mc.gui.setScreen(new ContainerScreen(menu, mc.player.getInventory(), Component.literal(title)));
 	}
 
 	private void check(ClientGameTestContext ctx, String name, String title, List<ItemStack> items, String... expect) {
@@ -210,7 +210,7 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 		String all = String.join("\n", drawn);
 		for (String e : expect) if (!all.contains(e)) failures.add(name + ": panel lacks \"" + e + "\"");
 		ctx.takeScreenshot("mythos-" + name);
-		ctx.runOnClient(mc -> mc.setScreen(null));
+		ctx.runOnClient(mc -> mc.gui.setScreen(null));
 		ctx.waitTicks(5);
 	}
 
@@ -220,7 +220,7 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 		List<String> drawn = ctx.computeOnClient(mc -> Panel.lastDrawn());
 		Mythos.LOG.info("[gametest] {} panel (should be empty): {}", name, drawn);
 		if (!drawn.isEmpty()) failures.add(name + ": expected no panel, drew " + drawn);
-		ctx.runOnClient(mc -> mc.setScreen(null));
+		ctx.runOnClient(mc -> mc.gui.setScreen(null));
 		ctx.waitTicks(5);
 	}
 
@@ -240,7 +240,7 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 		} catch (Exception e) {
 			failures.add("dump: " + e);
 		}
-		ctx.runOnClient(mc -> mc.setScreen(null));
+		ctx.runOnClient(mc -> mc.gui.setScreen(null));
 	}
 
 	private void shards(ClientGameTestContext ctx) {

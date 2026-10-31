@@ -78,7 +78,7 @@ public final class Mythos implements ClientModInitializer {
 	}
 
 	public static void toast(String title, String body) {
-		SystemToast.addOrUpdate(Minecraft.getInstance().getToastManager(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+		SystemToast.addOrUpdate(Minecraft.getInstance().gui.toastManager(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
 				Component.literal(title), Component.literal(body));
 	}
 
