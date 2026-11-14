@@ -7,6 +7,7 @@ import dev.aplseed.mythos.menu.Menu;
 import dev.aplseed.mythos.menu.MenuFeature;
 import dev.aplseed.mythos.net.Json;
 import dev.aplseed.mythos.ui.Panel;
+import dev.aplseed.mythos.ui.Theme;
 import dev.aplseed.mythos.util.Fmt;
 import dev.aplseed.mythos.util.Items;
 import java.util.ArrayList;
@@ -36,6 +37,7 @@ public final class AbsorbSync implements MenuFeature {
 	private Map<String, JsonObject> costs = Map.of();
 	private JsonObject costSummary;
 	private long costsAt;
+	private long retryAt;
 
 	@Override
 	public boolean enabled() {
@@ -138,7 +140,11 @@ public final class AbsorbSync implements MenuFeature {
 				costsAt = 0;
 				ShardIndex.refresh(true);
 			}
-		}, err -> status = "Sync failed: " + err);
+		}, err -> {
+			status = "Sync failed: " + err;
+			pending = menu;     // read it again in 10 s
+			retryAt = System.currentTimeMillis() + 10_000;
+		});
 	}
 
 	private void refreshCosts() {
@@ -149,12 +155,12 @@ public final class AbsorbSync implements MenuFeature {
 			for (JsonObject o : Json.objs(j, "shards")) m.put(Json.str(o, "id", ""), o);
 			costs = m;
 			costSummary = j;
-		});
+		}, err -> costsAt = System.currentTimeMillis() - COST_TTL_MS + 30_000);     // retry in 30 s
 	}
 
 	@Override
 	public void render(Menu menu, Menu.Entry hovered, GuiGraphicsExtractor g, Panel panel) {
-		if (pending != null) read(pending);
+		if (pending != null && System.currentTimeMillis() >= retryAt) read(pending);
 		if (box(menu.title)) {
 			// the fusion plan owns this panel; just report the sync
 			if (status != null) panel.header("Absorb sync").line(status, Panel.GRAY);
@@ -163,8 +169,9 @@ public final class AbsorbSync implements MenuFeature {
 		refreshCosts();
 		panel.header("Shard absorption");
 		if (status != null) panel.line(status, Panel.GRAY);
+		if (costSummary == null) panel.line(Mythos.backend().waiting("Loading costs..."), Panel.GRAY);
 		if (costSummary != null) {
-			panel.line("To max everything: " + Fmt.coins(Json.num(costSummary, "total_cost", 0)), Panel.WHITE);
+			panel.kv("To max everything", Fmt.coins(Json.num(costSummary, "total_cost", 0)), Panel.GOLD);
 			List<JsonObject> open = new ArrayList<>();
 			for (JsonObject o : costs.values()) {
 				if (!Json.bool(o, "done") && Json.num(o, "cost_remaining", -1) >= 0) open.add(o);
@@ -173,7 +180,7 @@ public final class AbsorbSync implements MenuFeature {
 			if (!open.isEmpty()) panel.line("Cheapest to finish:", Panel.GRAY);
 			for (JsonObject o : open.subList(0, Math.min(6, open.size()))) {
 				int left = (int) Json.num(o, "remaining", 0);
-				panel.link(Json.str(o, "name", "?") + "  " + left + " left  " + Fmt.coins(Json.num(o, "cost_remaining", 0))
+				panel.link(Json.str(o, "name", "?") + "  " + left + " left", Fmt.coins(Json.num(o, "cost_remaining", 0))
 						+ " (" + Json.str(o, "method", "") + ")", Panel.GREEN, buyHint(o), buy(o));
 			}
 		}
@@ -181,12 +188,14 @@ public final class AbsorbSync implements MenuFeature {
 		JsonObject c = h == null ? null : costs.get(h.id());
 		if (c != null) {
 			panel.header(h.name());
-			panel.line((int) Json.num(c, "absorbed", 0) + " / " + (int) Json.num(c, "cap", 0) + " absorbed", Panel.WHITE);
+			double cap = Json.num(c, "cap", 0);
+			panel.kv("Absorbed", (int) Json.num(c, "absorbed", 0) + " / " + (int) cap);
+			if (cap > 0) panel.bar(Json.num(c, "absorbed", 0) / cap, Json.bool(c, "done") ? Panel.GREEN : Theme.ACCENT);
 			if (Json.bool(c, "done")) {
 				panel.line("Maxed", Panel.GREEN);
 			} else if (Json.num(c, "unit_cost", -1) >= 0) {
 				panel.line(Fmt.coins(Json.num(c, "unit_cost", 0)) + " each by " + Json.str(c, "method", "?"), Panel.GRAY);
-				panel.link("Finish: " + Fmt.coins(Json.num(c, "cost_remaining", 0)) + "  (click to buy)", Panel.GOLD, buyHint(c), buy(c));
+				panel.link("Finish (click to buy)", Fmt.coins(Json.num(c, "cost_remaining", 0)), Panel.GOLD, buyHint(c), buy(c));
 			} else {
 				panel.line("Not obtainable on the bazaar", Panel.DARK);
 			}

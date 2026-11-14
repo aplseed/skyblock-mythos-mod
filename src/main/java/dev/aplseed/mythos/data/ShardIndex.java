@@ -52,6 +52,7 @@ public final class ShardIndex {
 
 	/** What to show while the list isn't loaded: progress, or why it failed (retried every 30 s). */
 	public static String status() {
+		if (!Mythos.backend().loggedIn()) return "Not logged in - run /myth to log in";
 		return error == null ? "Loading shard list..." : "Shard list failed: " + error;
 	}
 

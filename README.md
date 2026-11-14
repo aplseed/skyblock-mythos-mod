@@ -1,10 +1,12 @@
 # Mythos
 
-Client-side Fabric mod for Hypixel SkyBlock. It's built for **Minecraft 26.2**, **Fabric Loader 0.19.5** and Fabric API 0.161.0+26.2.
+Client-side Fabric mod for Hypixel SkyBlock, for **Minecraft 26.2** with Fabric Loader 0.19.5 or newer and Fabric API. The same source also builds a jar for **26.3** (see [Building](#building)).
 
 Mythos is the in-game half of [skyblock-mythos](https://github.com/aplseed/skyblock-mythos). The server does the work: fusion optimisation, absorb costs, forge ranking, backtested market signals, mayor effects and tax-aware P&L. The mod reads what only the game client can see, which is the open menu, your inventory and chat. It shows the server's answer next to the menu where you're making the decision.
 
 It doesn't repeat features covered by Skyblocker, SkyHanni, Firmament, BtrBz or MarketGuard. That means no price tooltips, flipping, outbid alerts or timers. Everything Mythos does is display-only: no clicks or actions are automated.
+
+The one part that needs no server is the **accessory calculator**: it reads your Accessory Bag and prices what's missing from public data.
 
 ## Features
 
@@ -16,13 +18,44 @@ It doesn't repeat features covered by Skyblocker, SkyHanni, Firmament, BtrBz or 
 | **Forge advisor** | The Forge and its recipe menus | Recipes ranked by profit per slot-hour, using your slot count, Quick Forge level and Cole. Rank badges appear on recipe items, each recipe category lists its best recipes, running processes show their time left, and there's a "start this" list when a slot is free. Hovering a recipe shows its profit, cost, time, HotM requirement, which parts to forge yourself and what to buy. |
 | **Election panel** | Election booth | For every candidate, the items that rose or fell in all their past terms (measured by the server). Where nothing has been measured yet, it shows what their perks are expected to do. |
 | **Sell warnings** | Chat + toast | When the engine flags something you hold, you're told once. The warning is acknowledged for the mod only, so the web toast still shows. |
+| **Accessory calculator** | Accessory Bag, `/myth acc` | Scans the bag, finds dupes, lists what's missing and plans a budget. See [below](#accessory-calculator). |
 | **Shard sessions** *(experimental)* | HUD | Shards caught (read from chat), their net value, coins per hour, and your main shard's catch rate compared with the rate saved for it on the Shard Farm page. |
+
+Panels sit beside the menu on whichever side has room, never over it, and scroll with the mouse wheel when they're taller than the screen.
+
+## The Mythos window
+
+`/myth` (or the "Open the Mythos window" key) opens one window for everything else:
+
+- **Overview** - server address and login (the password field is masked, and only the session token is stored), plus a switch for every feature.
+- **Accessories** - the calculator: Summary, Missing, Dupes, Budget and Unlocks.
+- **Settings** - forge slots, Quick Forge and Cole, how fusion plans value output, the shard HUD position.
+
+## Accessory calculator
+
+Open your Accessory Bag once, every page of it. Mythos records each accessory (id, rarity, whether it's recombobulated) and the empty slots, and keeps the scan in `config/mythos/accessories.json`, so the calculator works afterwards without the bag open. The bag itself gets a panel with your Magical Power, free slots, dupes (tinted red in the bag) and the cheapest power you could buy next.
+
+- **Dupes** - only the best accessory of an upgrade line counts (a Feather Ring makes a Feather Talisman dead weight; party hats are one line). Exact duplicates and lower tiers are listed with the page they're on.
+- **Missing** - every line you don't have, or have a lower tier of, cheapest coins per Magical Power first. Click one to run `/ahs <name>`.
+- **Budget** - `/myth budget 50m` (or the Budget tab) works out the most Magical Power the coins can buy. It weighs, together:
+  - new accessories at lowest BIN or bazaar price, or crafted when that's cheaper;
+  - upgrading what you have: the next tiers of a line, crafted *from the tier you own* where the recipe allows, and the cost of the rest of the recipe;
+  - a Recombobulator 3000 on an accessory you own or one it tells you to buy (never on ones that can't take it or already have one);
+  - bag space: new lines need a free slot. Slots come from the empty ones, then from taking dupes out, then from Jacobus' bag upgrades at their real price (1.5M, then 5M, 8M, 12M and 20M each, +2 slots per upgrade) - bought only when the power is worth it;
+  - what you can use: accessories behind a slayer level, Heart of the Mountain tier, trophy fish or Melody's Harp you don't have are left out.
+
+  The result is exact, not a greedy guess: it's a knapsack over coins and slots solved over every combination, and it takes milliseconds.
+- **Unlocks** - your slayer levels and the other requirements, how many bag upgrades you've bought from Jacobus, and a few switches. Mythos can't read these from the game, so set them once. A requirement left at "not set" counts as locked; with Jacobus at "unknown", budgets don't buy slots.
+
+Magical Power per rarity: Common 3, Uncommon 5, Rare 8, Epic 12, Legendary 16, Mythic 22, Special 3, Very Special 5. The Hegemony Artifact counts twice; a consumed Rift Prism (+11) is a switch in Unlocks.
+
+Data comes from Hypixel's public item list and bazaar (`api.hypixel.net`), upgrade lines and recipes from the NotEnoughUpdates repo (`raw.githubusercontent.com`), and lowest BINs from the first of `moulberry.codes`, `sky.coflnet.com` and `hysky.de` that answers. Prices refresh every 5 minutes; the item list is cached for a day and recipes for a week in `config/mythos/cache`.
 
 ## Setup
 
-1. Run the [skyblock-mythos](https://github.com/aplseed/skyblock-mythos) server. The mod connects to `http://127.0.0.1:5658` by default; use `/myth url <url>` for a server on another machine.
-2. Put `mythos-<version>.jar` in `.minecraft/mods` alongside Fabric API.
-3. In game, run `/myth login <user> <password>` once, using an account from the server's account page. The mod keeps only the session token it gets back, never your password. Sessions last 30 days from their last use; changing your password ends the session, and you then log in again.
+1. Put the `mythos-<version>+mc<minecraft version>.jar` that matches your game in `.minecraft/mods` alongside Fabric API. The accessory calculator works from here on.
+2. For everything else, run the [skyblock-mythos](https://github.com/aplseed/skyblock-mythos) server. The mod connects to `http://127.0.0.1:5658` by default; change the address in `/myth` (or `/myth url <url>`) for a server on another machine.
+3. In game, open `/myth` and log in once with an account from the server's account page (`/myth login <user> <password>` does the same). The mod keeps only the session token it gets back, never your password. Sessions last 30 days from their last use; changing your password ends the session, and you then log in again.
 
 The mod does nothing on servers other than Hypixel unless you set `onlyOnHypixel` to false.
 
@@ -30,18 +63,28 @@ The mod does nothing on servers other than Hypixel unless you set `onlyOnHypixel
 
 | Command | |
 | --- | --- |
-| `/myth` | Status: backend, login, features, settings |
-| `/myth login <user> <password>` / `/myth logout` | Backend account |
-| `/myth url <url>` | Backend address |
-| `/myth toggle <fusion\|absorb\|bazaar\|forge\|election\|warnings\|shards\|panels>` | Turn a feature on or off |
+| `/myth` | Opens the Mythos window |
+| `/myth status` | Server, login, features and settings, in chat |
+| `/myth login <user> <password>` / `/myth logout` | Server account |
+| `/myth url <url>` | Server address |
+| `/myth toggle <panels\|accessories\|fusion\|absorb\|bazaar\|forge\|election\|warnings\|shards>` | Turn a feature on or off |
 | `/myth forge <slots> <quickForgeLevel> <cole true\|false>` | Your forge unlocks, used for the ranking |
 | `/myth fusion <sell_order\|instant_sell> <pureReptileLevel>` | How fusion plans value output |
 | `/myth session` / `/myth session stop` | Current shard session / end it |
 | `/myth hud <x> <y>` | Shard session HUD position |
+| `/myth budget <coins>` | Best way to spend that much on Magical Power (`50m`, `1.2b`, `750k`) |
+| `/myth acc` | Opens the accessory calculator |
+| `/myth acc dupes` / `/myth acc missing` | Dupes / cheapest missing accessories, in chat |
+| `/myth acc unlock <requirement> <level>` | Your level for a requirement: `slayer_wolf 7`, `hotm 5`, `trophy_lava 3` (0 none - 4 diamond), `melody 1` |
+| `/myth acc jacobus <upgradesBought>` | Bag upgrades bought from Jacobus (0-99, -1 unknown) |
+| `/myth acc slots <free\|auto>` | Override the free bag slots the scan counted |
+| `/myth acc refresh` / `/myth acc reset` | Reload prices and the item list / forget the scanned bag |
 
 ## Keys
 
-Both keys can be rebound in Options → Controls → Mythos.
+All three can be rebound in Options → Controls → Mythos.
+
+- **Open the Mythos window.** Unbound by default; `/myth` does the same.
 
 - **F8 — dump menu.** With any menu open, press F8 to save its title and every item's name, id and lore to `config/mythos/dumps/`, and copy the same text to the clipboard. Chat can't be opened over a menu, so this is how you report a menu the mod reads wrongly. Paste the dump into an issue.
 - **Toggle menu panels.** Unbound by default.
@@ -58,7 +101,15 @@ Builds need JDK 25.
 ./gradlew build
 ```
 
-The jar is written to `build/libs/`. CI builds every push and attaches the jar to the run as the `mythos-jar` artifact.
+The jar is written to `build/libs/` for the Minecraft version in `gradle.properties` (26.2). For 26.3, name it and its Fabric API:
+
+```
+./gradlew build -Pminecraft_version=26.3 -Pfabric_api_version=0.166.2+26.3
+```
+
+A jar only loads on the Minecraft version it was built for (26.3 renumbered its key codes).
+
+`build` also runs the unit tests of the accessory calculator (`src/test`). `./gradlew runClientGameTest` boots the real client against recorded server responses (`.github/fake-backend`, start `server.py` first) and checks what every panel and window tab draws; with `MYTHOS_LIVE=1` set it also loads the real accessory data and prices. CI does both for each Minecraft version and attaches the jars as `mythos-jar-<version>`.
 
 ## Server endpoints used
 
@@ -67,6 +118,8 @@ The jar is written to `build/libs/`. CI builds every push and attaches the jar t
 - `POST /api/shards/optimize-inventory`, `GET /api/shards/absorb`, `GET /api/shards/farms`
 - `GET /api/forge?compact=1`
 - `GET /api/status`, `POST /api/alerts/ack`
+
+The accessory calculator calls none of these.
 
 ## Known limitations
 
@@ -78,5 +131,10 @@ The jar is written to `build/libs/`. CI builds every push and attaches the jar t
 
   If a panel shows nothing, or reads numbers wrongly, press F8 in that menu and send the dump.
 - **The Attribute Menu syncs one page at a time.** Each of its pages is synced when you open it.
+- **The Accessory Bag reader hasn't been checked against a real menu dump yet.** It expects the title "Accessory Bag" or "Accessory Bag (2/3)", navigation in the bottom row, accessories with a SkyBlock id and a rarity line ending in ACCESSORY or HATCESSORY, empty slots where the bag has room, and some filler item over locked slots. If the free slot count is off, set it with `/myth acc slots <n>` and send an F8 dump of the bag.
+- **Magical Power can differ slightly from the game's.** The Abicase's bonus from contacts isn't counted, and an accessory in the bag that you don't meet the requirement for is counted as if it worked.
+- **Craft prices assume you can craft.** A recipe behind a slayer level you haven't set is skipped, but collection requirements ("needs Feather IX" in the step) can't be checked. Turn off "Craft when it's cheaper" in Unlocks to plan with auction and bazaar prices only. Crafting is assumed to drop a recombobulator on the ingredient.
+- **Soulbound and unsold accessories** (campfire badges, the Jacobus Register...) have no price, so they're listed as missing but never planned.
+- **One profile.** The scan isn't tied to a SkyBlock profile; after switching, use "Forget the scan" in Unlocks.
 - **The Hunting Box planner only sees the page that's open.** It counts the shards shown on the current page plus your inventory.
 - **Shard sessions count chat messages that name a shard.** Catch messages worded in ways the patterns don't match aren't counted.

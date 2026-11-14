@@ -18,6 +18,11 @@ public final class SellWarnings {
 
 	private SellWarnings() {}
 
+	/** Joined a server: check 15 s from now rather than up to a minute. */
+	public static void joined() {
+		ticks = INTERVAL_TICKS - 20 * 15;
+	}
+
 	public static void tick() {
 		if (++ticks < INTERVAL_TICKS) return;
 		ticks = 0;

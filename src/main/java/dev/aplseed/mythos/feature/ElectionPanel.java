@@ -18,8 +18,11 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 public final class ElectionPanel implements MenuFeature {
 	private static final long TTL_MS = 5 * 60_000;
 
+	private static final long RETRY_MS = 30_000;
+
 	private List<JsonObject> candidates = List.of();
 	private long fetchedAt;
+	private boolean loaded;
 
 	@Override
 	public boolean enabled() {
@@ -34,7 +37,10 @@ public final class ElectionPanel implements MenuFeature {
 	private void refresh() {
 		if (System.currentTimeMillis() - fetchedAt < TTL_MS) return;
 		fetchedAt = System.currentTimeMillis();
-		Mythos.backend().get("/api/mod/election", j -> candidates = Json.objs(j, "candidates"));
+		Mythos.backend().get("/api/mod/election", j -> {
+			candidates = Json.objs(j, "candidates");
+			loaded = true;
+		}, err -> fetchedAt = System.currentTimeMillis() - TTL_MS + RETRY_MS);
 	}
 
 	private static String arrow(double dir) {
@@ -73,7 +79,7 @@ public final class ElectionPanel implements MenuFeature {
 		refresh();
 		panel.header("Election: market effects");
 		if (candidates.isEmpty()) {
-			panel.line("No running election data", Panel.GRAY);
+			panel.line(loaded ? "No running election data" : Mythos.backend().waiting("Loading..."), Panel.GRAY);
 			return;
 		}
 		JsonObject focus = null;
@@ -82,7 +88,7 @@ public final class ElectionPanel implements MenuFeature {
 			String name = Json.str(c, "mayor", "?");
 			if (!hov.isEmpty() && hov.equals(name.toLowerCase(Locale.ROOT))) focus = c;
 			double share = Json.num(c, "share", -1);
-			panel.line(name + (share >= 0 ? "  " + share + "%" : ""), Panel.AQUA);
+			panel.row(name, share >= 0 ? share + "%" : null, Panel.AQUA);
 			held(panel, c);
 			List<JsonObject> eff = Json.objs(c, "effects");
 			for (JsonObject e : eff.subList(0, Math.min(2, eff.size()))) effect(panel, e);

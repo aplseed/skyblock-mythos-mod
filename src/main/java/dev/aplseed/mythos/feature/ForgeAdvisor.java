@@ -7,6 +7,7 @@ import dev.aplseed.mythos.menu.Menu;
 import dev.aplseed.mythos.menu.MenuFeature;
 import dev.aplseed.mythos.net.Json;
 import dev.aplseed.mythos.ui.Panel;
+import dev.aplseed.mythos.ui.Theme;
 import dev.aplseed.mythos.util.Fmt;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -25,6 +26,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
  */
 public final class ForgeAdvisor implements MenuFeature {
 	private static final long TTL_MS = 10 * 60_000;
+	private static final long RETRY_MS = 30_000;
 
 	// Recipe categories under Select Process; several ("Tools", "Pets", "Other") are also
 	// titles of unrelated menus, so those only count once the menu shows recipes.
@@ -39,7 +41,7 @@ public final class ForgeAdvisor implements MenuFeature {
 	private String settingsKey = "";
 	private int freeSlots = -1;
 	private boolean showsRecipes;
-	private List<String> running = List.of();
+	private List<String[]> running = List.of();
 
 	@Override
 	public boolean enabled() {
@@ -63,6 +65,7 @@ public final class ForgeAdvisor implements MenuFeature {
 		fetchedAt = System.currentTimeMillis();
 		Mythos.backend().get("/api/forge?compact=1&slots=" + c.forgeSlots + "&qf=" + c.quickForgeLevel
 				+ "&cole=" + (c.coleMayor ? 1 : 0), j -> {
+			if (!key.equals(settingsKey)) return;     // the settings changed while this was on its way
 			rows = Json.objs(j, "data");
 			rankById.clear();
 			rankByName.clear();
@@ -70,7 +73,7 @@ public final class ForgeAdvisor implements MenuFeature {
 				rankById.putIfAbsent(Json.str(rows.get(i), "id", ""), i);
 				rankByName.putIfAbsent(norm(Json.str(rows.get(i), "name", "")), i);
 			}
-		});
+		}, err -> fetchedAt = System.currentTimeMillis() - TTL_MS + RETRY_MS);
 	}
 
 	private static String norm(String s) {
@@ -85,13 +88,13 @@ public final class ForgeAdvisor implements MenuFeature {
 	public void update(Menu menu) {
 		int free = 0;
 		boolean recipes = false;
-		List<String> busy = new ArrayList<>();
+		List<String[]> busy = new ArrayList<>();
 		for (Menu.Entry e : menu.container) {
 			if (e.name().startsWith("Slot #") && e.lore().contains("Click to select a process!")) free++;
 			if (e.lore().stream().anyMatch(l -> l.startsWith("Currently making:"))) {
 				String left = e.lore().stream().filter(l -> l.startsWith("Time Remaining:")).findFirst()
 						.map(l -> l.substring("Time Remaining:".length()).trim()).orElse("done");
-				busy.add(e.name() + "  " + left);
+				busy.add(new String[] {e.name(), left});
 			}
 			if (e.lore().contains("Items Required") && e.lore().stream().anyMatch(l -> l.startsWith("Duration:"))) recipes = true;
 		}
@@ -118,7 +121,7 @@ public final class ForgeAdvisor implements MenuFeature {
 		Config c = Mythos.config();
 		panel.header("Forge (" + c.forgeSlots + " slots, QF " + c.quickForgeLevel + (c.coleMayor ? ", Cole" : "") + ")");
 		if (rows.isEmpty()) {
-			panel.line("Loading recipes...", Panel.GRAY);
+			panel.line(Mythos.backend().waiting("Loading recipes..."), Panel.GRAY);
 			return;
 		}
 		var font = Minecraft.getInstance().font;
@@ -128,31 +131,32 @@ public final class ForgeAdvisor implements MenuFeature {
 			if (r == null) continue;
 			here.add(e);
 			int x = menu.slotX(e.slot()), y = menu.slotY(e.slot());
-			g.text(font, "#" + (r + 1), x, y, r < 3 ? Panel.GOLD : Panel.GRAY, true);
+			Theme.badge(g, font, x, y, "#" + (r + 1), r < 3 ? Panel.GOLD : Panel.GRAY);
 		}
 		if (!here.isEmpty()) {
 			here.sort((a, b) -> Integer.compare(rankOf(a), rankOf(b)));
 			panel.line("Best here:", Panel.AQUA);
 			for (Menu.Entry e : here.subList(0, Math.min(4, here.size()))) {
 				JsonObject r = rows.get(rankOf(e));
-				panel.line("#" + (rankOf(e) + 1) + " " + e.name() + "  " + Fmt.coins(Json.num(r, "opt_slot_pph", 0))
+				panel.row("#" + (rankOf(e) + 1) + " " + e.name(), Fmt.coins(Json.num(r, "opt_slot_pph", 0))
 						+ "/slot-h" + gradeOf(r), Panel.AQUA);
 			}
 			panel.line("Overall:", Panel.GRAY);
 		}
-		for (String r : running) panel.line("Forging: " + r, Panel.GRAY);
+		for (String[] r : running) panel.kv("Forging: " + r[0], r[1]);
 		if (freeSlots > 0) panel.line(freeSlots + " free slot" + (freeSlots > 1 ? "s" : "") + " - start:", Panel.AQUA);
 		for (int i = 0; i < Math.min(6, rows.size()); i++) {
 			JsonObject r = rows.get(i);
-			panel.line("#" + (i + 1) + " " + Json.str(r, "name", "?") + "  " + Fmt.coins(Json.num(r, "opt_slot_pph", 0))
+			panel.row("#" + (i + 1) + " " + Json.str(r, "name", "?"), Fmt.coins(Json.num(r, "opt_slot_pph", 0))
 					+ "/slot-h  " + Fmt.hours(Json.num(r, "opt_time", 0)) + gradeOf(r), i < 3 ? Panel.GOLD : Panel.WHITE);
 		}
 		Integer hr = hovered == null ? null : rankOf(hovered);
 		if (hr != null) {
 			JsonObject h = rows.get(hr);
 			panel.header("#" + (hr + 1) + " " + Json.str(h, "name", ""));
-			panel.line("Profit " + Fmt.signed(Json.num(h, "opt_profit", 0)) + " on " + Fmt.coins(Json.num(h, "opt_cost", 0)), Panel.GREEN);
-			panel.line(Fmt.coins(Json.num(h, "opt_slot_pph", 0)) + " per slot-hour, done in " + Fmt.hours(Json.num(h, "opt_time", 0)), Panel.WHITE);
+			panel.kv("Profit", Fmt.signed(Json.num(h, "opt_profit", 0)) + " on " + Fmt.coins(Json.num(h, "opt_cost", 0)), Panel.GREEN);
+			panel.kv("Per slot-hour", Fmt.coins(Json.num(h, "opt_slot_pph", 0)));
+			panel.kv("Done in", Fmt.hours(Json.num(h, "opt_time", 0)));
 			String hotm = Json.str(h, "hotm", "");
 			if (!hotm.isEmpty()) panel.line(hotm, Panel.GRAY);
 			List<String> parts = Json.strs(h, "forge_parts");
@@ -160,7 +164,7 @@ public final class ForgeAdvisor implements MenuFeature {
 			List<JsonObject> buy = Json.objs(h, "shopping_list");
 			if (!buy.isEmpty()) panel.line("Buy:", Panel.GRAY);
 			for (JsonObject b : buy.subList(0, Math.min(5, buy.size()))) {
-				panel.line("  " + (long) Json.num(b, "qty", 0) + "x " + Json.str(b, "name", "?") + "  " + Fmt.coins(Json.num(b, "cost", 0)), Panel.GRAY);
+				panel.kv("  " + (long) Json.num(b, "qty", 0) + "x " + Json.str(b, "name", "?"), Fmt.coins(Json.num(b, "cost", 0)), Panel.GRAY);
 			}
 		}
 	}

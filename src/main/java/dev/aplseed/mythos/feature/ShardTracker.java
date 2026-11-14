@@ -4,6 +4,7 @@ import com.google.gson.JsonObject;
 import dev.aplseed.mythos.Mythos;
 import dev.aplseed.mythos.data.ShardIndex;
 import dev.aplseed.mythos.net.Json;
+import dev.aplseed.mythos.ui.Theme;
 import dev.aplseed.mythos.util.Fmt;
 import dev.aplseed.mythos.util.Items;
 import java.util.ArrayList;
@@ -133,10 +134,13 @@ public final class ShardTracker {
 		List<String> lines = summary();
 		int w = 0;
 		for (String l : lines) w = Math.max(w, font.width(l));
-		int x = Mythos.config().hudX, y = Mythos.config().hudY;
-		g.fill(x - 2, y - 2, x + w + 2, y + lines.size() * (font.lineHeight + 1) + 1, 0x90000000);
+		// keep the box on screen whatever position is stored
+		int h = lines.size() * (font.lineHeight + 1) + 7;
+		int x = Math.max(0, Math.min(Mythos.config().hudX, g.guiWidth() - w - 10));
+		int y = Math.max(0, Math.min(Mythos.config().hudY, g.guiHeight() - h));
+		Theme.frame(g, x, y, w + 10, h);
 		for (int i = 0; i < lines.size(); i++) {
-			g.text(font, lines.get(i), x, y + i * (font.lineHeight + 1), i == 0 ? 0xFF55FFFF : 0xFFDDDDDD, true);
+			g.text(font, lines.get(i), x + 5, y + 5 + i * (font.lineHeight + 1), i == 0 ? Theme.AQUA : Theme.TEXT, false);
 		}
 	}
 }
