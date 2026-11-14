@@ -29,10 +29,14 @@ public final class AccData {
 	static final String ITEMS_URL = "https://api.hypixel.net/v2/resources/skyblock/items";
 	static final String BAZAAR_URL = "https://api.hypixel.net/v2/skyblock/bazaar";
 	static final String NEU = "https://raw.githubusercontent.com/NotEnoughUpdates/NotEnoughUpdates-REPO/master/";
-	/** Lowest-BIN lists, all {"ITEM_ID": price}; tried in order, the one that answers is used from then on. */
+	/**
+	 * Lowest-BIN lists, all {"ITEM_ID": price}; tried in order, the one that answers is used from
+	 * then on. Only lists of real buy-it-now listings belong here: an accessory is only ever
+	 * "bought" at a price someone is offering right now. (Coflnet's NEU endpoint is not one -
+	 * it returns estimated prices, also for items with no BIN up.)
+	 */
 	static final String[] LBIN_URLS = {
 		"https://moulberry.codes/lowestbin.json",
-		"https://sky.coflnet.com/api/prices/neu",
 		"https://hysky.de/api/auctions/lowestbins",
 	};
 
@@ -317,7 +321,7 @@ public final class AccData {
 		Deque<String> todo = new ArrayDeque<>();
 		for (Catalog.Acc a : cat.byId.values()) {
 			if (!a.obtainable()) continue;
-			boolean wanted = cat.families.get(a.family()).size() > 1 || Double.isNaN(p.market(a.id()));
+			boolean wanted = cat.families.get(a.family()).size() > 1 || Double.isNaN(p.ah(a.id()));
 			if (wanted && (stale || !recipes.containsKey(a.id()))) todo.add(a.id());
 		}
 		if (todo.isEmpty()) {

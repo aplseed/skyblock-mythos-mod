@@ -82,9 +82,9 @@ public final class Analysis {
 	}
 
 	/** `used`: the owned accessory a craft consumes; `needs`: what unlocks the recipe. */
-	private record Source(double cost, boolean craft, String used, String needs, boolean bazaar) {
+	private record Source(double cost, boolean craft, String used, String needs) {
 		String how() {
-			if (!craft) return bazaar ? "bazaar" : "lowest BIN";
+			if (!craft) return "lowest BIN";
 			return (used != null ? "craft from your " + used : "craft") + (needs != null ? ", needs " + needs : "");
 		}
 	}
@@ -95,8 +95,9 @@ public final class Analysis {
 	 * at market price. A recipe behind a slayer level the player lacks isn't an option.
 	 */
 	private static Source acquire(Catalog cat, Prices prices, Player player, String id, Set<String> usable, int depth) {
-		double ah = prices.market(id);
-		Source best = Double.isNaN(ah) ? null : new Source(ah, false, null, null, prices.bazaar().containsKey(id));
+		// an accessory can only be bought if a buy-it-now auction for it is up
+		double ah = prices.ah(id);
+		Source best = Double.isNaN(ah) ? null : new Source(ah, false, null, null);
 		Prices.Recipe recipe = !player.craft() || depth > 4 ? null : prices.recipes().get(id);
 		if (recipe == null || recipe.parts().isEmpty()) return best;
 		if (recipe.slayerKey() != null && player.unlocks().getOrDefault(recipe.slayerKey(), -1) < recipe.slayerLevel()) return best;
@@ -109,8 +110,9 @@ public final class Analysis {
 				used = cat.name(part);
 				continue;
 			}
-			double each = prices.market(part);
-			if (cat.byId.containsKey(part)) {     // a lower tier: maybe cheaper to craft that too
+			boolean accessory = cat.byId.containsKey(part);
+			double each = accessory ? prices.ah(part) : prices.market(part);
+			if (accessory) {     // a lower tier: BIN only, or maybe cheaper to craft that too
 				Source sub = acquire(cat, prices, player, part, usable, depth + 1);
 				if (sub != null && sub.craft && (Double.isNaN(each) || sub.cost < each)) {
 					each = sub.cost;
@@ -120,7 +122,7 @@ public final class Analysis {
 			}
 			sum += each * n;     // NaN if any part has no price
 		}
-		if (!Double.isNaN(sum) && (best == null || sum < best.cost)) best = new Source(sum, true, used, needs, false);
+		if (!Double.isNaN(sum) && (best == null || sum < best.cost)) best = new Source(sum, true, used, needs);
 		return best;
 	}
 
