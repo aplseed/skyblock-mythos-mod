@@ -38,7 +38,7 @@ Open your Accessory Bag once, every page of it. Mythos records each accessory (i
 - **Dupes** - only the best accessory of an upgrade line counts (a Feather Ring makes a Feather Talisman dead weight; party hats are one line). Exact duplicates and lower tiers are listed with the page they're on.
 - **Missing** - every line you don't have, or have a lower tier of, cheapest coins per Magical Power first. Click one to run `/ahs <name>`.
 - **Budget** - `/myth budget 50m` (or the Budget tab) works out the most Magical Power the coins can buy. It weighs, together:
-  - new accessories at lowest BIN or bazaar price, or crafted when that's cheaper;
+  - new accessories at their lowest buy-it-now auction (no BIN listed: not buyable), or crafted when that's cheaper;
   - upgrading what you have: the next tiers of a line, crafted *from the tier you own* where the recipe allows, and the cost of the rest of the recipe;
   - a Recombobulator 3000 on an accessory you own or one it tells you to buy (never on ones that can't take it or already have one);
   - bag space: new lines need a free slot. Slots come from the empty ones, then from taking dupes out, then from Jacobus' bag upgrades at their real price (1.5M, then 5M, 8M, 12M and 20M each, +2 slots per upgrade) - bought only when the power is worth it;
@@ -49,7 +49,7 @@ Open your Accessory Bag once, every page of it. Mythos records each accessory (i
 
 Magical Power per rarity: Common 3, Uncommon 5, Rare 8, Epic 12, Legendary 16, Mythic 22, Special 3, Very Special 5. The Hegemony Artifact counts twice; a consumed Rift Prism (+11) is a switch in Unlocks.
 
-Data comes from Hypixel's public item list and bazaar (`api.hypixel.net`), upgrade lines and recipes from the NotEnoughUpdates repo (`raw.githubusercontent.com`), and lowest BINs from the first of `moulberry.codes`, `sky.coflnet.com` and `hysky.de` that answers. Prices refresh every 5 minutes; the item list is cached for a day and recipes for a week in `config/mythos/cache`.
+Data comes from Hypixel's public item list and bazaar (`api.hypixel.net`), upgrade lines and recipes from the NotEnoughUpdates repo (`raw.githubusercontent.com`), and lowest BINs from the first of `moulberry.codes` and `hysky.de` that answers. An accessory is only ever planned as a purchase when a buy-it-now auction for it is listed; one without a BIN is either crafted or left out. Prices refresh every 5 minutes; the item list is cached for a day and recipes for a week in `config/mythos/cache`.
 
 ## Setup
 

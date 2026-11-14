@@ -169,6 +169,12 @@ class AccessoryCalculatorTest {
 		assertEquals(16, option(unlocked, "TITANIUM_RELIC", false).gain());
 		assertEquals(0, unlocked.locked);
 
+		// an accessory is bought at a BIN or not at all: a bazaar-style price doesn't make it buyable
+		Prices noBin = new Prices(Map.of(), Map.of(Prices.RECOMB, 9_000_000.0, "SPEED_TALISMAN", 5_000.0, "PARTY_HAT_SLOTH", 1.0), Map.of());
+		Analysis unsold = Analysis.of(CAT, noBin, List.of(), player(5, -1, Map.of()));
+		assertTrue(unsold.groups.isEmpty(), "nothing has a BIN, so nothing can be bought");
+		assertTrue(unsold.missing.stream().allMatch(m -> Double.isNaN(m.price())));
+
 		// the campfire badge has no price anywhere: listed as missing, never planned
 		assertTrue(a.missing.stream().anyMatch(m -> m.acc().id().equals("CAMPFIRE_TALISMAN_1") && Double.isNaN(m.price())));
 		assertNull(option(a, "CAMPFIRE_TALISMAN_1", false));
