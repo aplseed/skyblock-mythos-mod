@@ -49,6 +49,8 @@ public final class Config {
 	public String accBudget = "";
 	/** price accessories by their recipe when crafting is cheaper than buying */
 	public boolean accCraft = true;
+	/** collection (lower case) -> tier, read from the Collections menus or set by hand */
+	public Map<String, Integer> collections = new TreeMap<>();
 
 	public static Config load(Path file) {
 		path = file;
@@ -80,6 +82,8 @@ public final class Config {
 		hudY = Math.max(0, hudY);
 		if (unlocks == null) unlocks = new TreeMap<>();
 		unlocks.values().removeIf(v -> v == null);
+		if (collections == null) collections = new TreeMap<>();
+		collections.values().removeIf(v -> v == null);
 		jacobusUpgrades = Math.max(-1, Math.min(99, jacobusUpgrades));
 		if (accBudget == null) accBudget = "";
 	}

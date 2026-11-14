@@ -140,10 +140,10 @@ public final class BagScanner implements MenuFeature {
 			if (m.locked() != null || Double.isNaN(m.price())) continue;
 			if (listed == 0) panel.header("Cheapest power", "coins per MP");
 			String value = Fmt.coins(m.price()) + "  +" + m.gain();
+			String name = m.acc().name();
 			if (m.how().startsWith("craft")) {
-				panel.row(m.acc().name(), value, Panel.GREEN);
+				panel.link(name, value, Panel.GREEN, "Click: /recipe " + name + " (" + m.how() + ")", () -> Mythos.recipe(name));
 			} else {
-				String name = m.acc().name();
 				panel.link(name, value, Panel.GREEN, "Click: /ahs " + name + " (" + Fmt.coins(m.perMp()) + " per MP)", () -> Mythos.auctionSearch(name));
 			}
 			if (++listed == 5) break;

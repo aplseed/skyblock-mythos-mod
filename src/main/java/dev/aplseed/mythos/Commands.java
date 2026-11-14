@@ -140,6 +140,17 @@ final class Commands {
 											Mythos.chat(Catalog.label(key) + ": " + Catalog.levelName(key, level));
 											return 1;
 										}))))
+				.then(ClientCommands.literal("collection")
+						.then(ClientCommands.argument("tier", IntegerArgumentType.integer(0, 20))
+								.then(ClientCommands.argument("name", StringArgumentType.greedyString())
+										.executes(c -> {
+											String name = StringArgumentType.getString(c, "name").trim();
+											int tier = IntegerArgumentType.getInteger(c, "tier");
+											Mythos.config().collections.put(name.toLowerCase(java.util.Locale.ROOT), tier);
+											Mythos.config().save();
+											Mythos.chat(name + " collection: tier " + tier);
+											return 1;
+										}))))
 				.then(ClientCommands.literal("jacobus")
 						.then(ClientCommands.argument("upgradesBought", IntegerArgumentType.integer(-1, Planner.JACOBUS_MAX))
 								.executes(c -> {
@@ -225,6 +236,9 @@ final class Commands {
 		if (a == null) return;
 		for (String l : Accessories.lines(plan, a, 12)) Mythos.chat(l);
 		if (a.locked > 0) Mythos.chat("§7 " + a.locked + " accessory lines are locked for you (/myth acc > Unlocks)");
+		if (!a.unknownCollections.isEmpty()) {
+			Mythos.chat("§7 " + a.unknownCollections.size() + " recipes weren't considered: open your Collections menus so Mythos can check them");
+		}
 	}
 
 	private static int dupes() {

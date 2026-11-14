@@ -267,6 +267,7 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 			Mythos.config().accFreeSlots = -1;
 			Mythos.config().riftPrism = false;
 			Mythos.config().accCraft = true;
+			Mythos.config().collections.clear();
 			// page 1 of 2, full: two feather talismans (a dupe), a wolf talisman under the recombobulated ring
 			List<ItemStack> page1 = new ArrayList<>(List.of(
 					accessory("FEATHER_TALISMAN", "Feather Talisman", "COMMON", false),
@@ -291,6 +292,20 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 		if (String.join("\n", p2).contains("finish the scan")) failures.add("accessory bag: still asks for a page after both were opened");
 		ctx.runOnClient(mc -> mc.gui.setScreen(null));
 		ctx.waitTicks(5);
+
+		// before the collection is seen, the feather upgrade is a 400k purchase, not a 78k craft
+		command(ctx, "myth budget 100k");
+		ctx.waitFor(mc -> chatContains(mc, "100k budget"), 200);
+		expect("/myth budget before collections", ctx.computeOnClient(mc -> Mythos.sentChat()), "+3 Magical Power", "2 recipes weren't considered");
+		// a collection menu as the game shows it: the tier is in the item's name
+		check(ctx, "collections", "Farming Collections", List.of(
+				item("Feather IX", "View all your Feather Collection", "progress and rewards!", "", "Progress to Feather X: 12.5%"),
+				item("Wheat", "View all your Wheat Collection", "progress and rewards!", "", "Progress to Wheat I: 0%")),
+				"Collections  2 read", "Every accessory recipe is checked");
+		ctx.runOnClient(mc -> {
+			Map<String, Integer> seen = Mythos.config().collections;
+			if (!Integer.valueOf(9).equals(seen.get("feather")) || !Integer.valueOf(0).equals(seen.get("wheat"))) failures.add("collections: read " + seen);
+		});
 
 		// HotM was never set: the titanium relic is locked, the red claw (wolf 7 >= 5) isn't.
 		// 6M buys the 78k feather craft (+5), speed talisman (+3), red claw (+12) and the grimoire (+12)
@@ -384,8 +399,8 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 				new Case("acc-summary", MythosScreen.Tab.ACCESSORIES, MythosScreen.Sub.SUMMARY, new String[] {"170 MP", "Accessories counted", "44 of 46", "Dupes", "Power by rarity", "Legendary"}),
 				new Case("acc-missing", MythosScreen.Tab.ACCESSORIES, MythosScreen.Sub.MISSING, new String[] {"Speed Talisman", "Red Claw Artifact", "needs Heart of the Mountain 5 (yours: not set)", "soulbound: earn it"}),
 				new Case("acc-dupes", MythosScreen.Tab.ACCESSORIES, MythosScreen.Sub.DUPES, new String[] {"2 slots wasted", "you have it twice  -  page 1"}),
-				new Case("acc-budget", MythosScreen.Tab.ACCESSORIES, MythosScreen.Sub.BUDGET, new String[] {"+32 Magical Power", "170 -> 202", "4 purchases", "craft from your Feather Talisman, needs Feather IX", "[Send to chat]"}),
-				new Case("acc-unlocks", MythosScreen.Tab.ACCESSORIES, MythosScreen.Sub.UNLOCKS, new String[] {"Wolf Slayer", "Heart of the Mountain", "not set", "Jacobus upgrades", "3 of 99", "Next upgrade", "5M for +2 slots"}))) {
+				new Case("acc-budget", MythosScreen.Tab.ACCESSORIES, MythosScreen.Sub.BUDGET, new String[] {"+32 Magical Power", "170 -> 202", "4 purchases", "craft from your Feather Talisman", "[Send to chat]"}),
+				new Case("acc-unlocks", MythosScreen.Tab.ACCESSORIES, MythosScreen.Sub.UNLOCKS, new String[] {"Wolf Slayer", "Heart of the Mountain", "not set", "Jacobus upgrades", "3 of 99", "Next upgrade", "5M for +2 slots", "Collections for crafts", "Feather", "IX"}))) {
 			ctx.runOnClient(mc -> {
 				if (c.sub != null) MythosScreen.show(c.sub);
 				mc.gui.setScreen(new MythosScreen(c.tab));
