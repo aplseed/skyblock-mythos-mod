@@ -6,6 +6,7 @@ import dev.aplseed.mythos.acc.AccData;
 import dev.aplseed.mythos.feature.AbsorbSync;
 import dev.aplseed.mythos.feature.BagScanner;
 import dev.aplseed.mythos.feature.BazaarPanel;
+import dev.aplseed.mythos.feature.CollectionScanner;
 import dev.aplseed.mythos.feature.ElectionPanel;
 import dev.aplseed.mythos.feature.ForgeAdvisor;
 import dev.aplseed.mythos.feature.FusionPlanner;
@@ -61,7 +62,7 @@ public final class Mythos implements ClientModInitializer {
 
 	public static final List<Feature> FEATURES = List.of(
 			new Feature("panels", "Menu panels", "Everything drawn beside menus", c -> c.overlays, (c, v) -> c.overlays = v),
-			new Feature("accessories", "Accessory bag", "Scan the bag, show power and dupes", c -> c.accessories, (c, v) -> c.accessories = v),
+			new Feature("accessories", "Accessory bag", "Scan the bag and your collections", c -> c.accessories, (c, v) -> c.accessories = v),
 			new Feature("fusion", "Fusion planner", "Best fusions for the shards you hold", c -> c.fusionPlanner, (c, v) -> c.fusionPlanner = v),
 			new Feature("absorb", "Absorb sync", "Absorbed counts and cost to max", c -> c.absorbSync, (c, v) -> c.absorbSync = v),
 			new Feature("bazaar", "Bazaar intel", "Signals, positions, mayor effects", c -> c.bazaarPanel, (c, v) -> c.bazaarPanel = v),
@@ -136,6 +137,14 @@ public final class Mythos implements ClientModInitializer {
 		mc.getConnection().sendCommand("ahs " + name);
 	}
 
+	/** Opens the game's recipe view for `name` ("/recipe Feather Artifact"). One click, one command. */
+	public static void recipe(String name) {
+		Minecraft mc = Minecraft.getInstance();
+		if (mc.getConnection() == null) return;
+		if (mc.gui.screen() instanceof MythosScreen) mc.gui.setScreen(null);
+		mc.getConnection().sendCommand("recipe " + name);
+	}
+
 	private static MythosScreen.Tab pendingScreen;
 	private static boolean screenRequested;
 
@@ -183,6 +192,7 @@ public final class Mythos implements ClientModInitializer {
 		MenuOverlays.add(new ForgeAdvisor());
 		MenuOverlays.add(new ElectionPanel());
 		MenuOverlays.add(new BagScanner());
+		MenuOverlays.add(new CollectionScanner());
 		MenuOverlays.init();
 
 		Commands.register();

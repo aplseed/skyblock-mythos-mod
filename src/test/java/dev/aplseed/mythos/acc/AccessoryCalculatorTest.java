@@ -58,12 +58,14 @@ class AccessoryCalculatorTest {
 					// 4 x 100k teeth and a wolf ring nobody sells: only craftable, and only with the slayer level
 					"RED_CLAW_ARTIFACT", new Prices.Recipe(Map.of("GOLDEN_TOOTH", 4), "Wolf Slayer 5", "slayer_wolf", 5)));
 
+	static final Map<String, Integer> COLLECTIONS = Map.of("feather", 9);
+
 	static Owned bag(String id, Rarity r, boolean recomb, int slot) {
 		return new Owned(id, CAT.name(id), r, recomb, 1, slot, true);
 	}
 
 	static Player player(int free, int jacobus, Map<String, Integer> unlocks) {
-		return new Player(unlocks, free, jacobus, false, true);
+		return new Player(unlocks, free, jacobus, false, true, COLLECTIONS);
 	}
 
 	static Option option(Analysis a, String id, boolean recomb) {
@@ -115,7 +117,7 @@ class AccessoryCalculatorTest {
 		assertTrue(a.dupes.stream().anyMatch(d -> d.item().id().equals("FEATHER_TALISMAN") && d.sameItem()));
 		assertTrue(a.dupes.stream().anyMatch(d -> d.item().id().equals("WOLF_TALISMAN") && d.kept().id().equals("WOLF_RING") && !d.sameItem()));
 		assertTrue(a.dupes.stream().anyMatch(d -> d.item().id().startsWith("PARTY_HAT")));
-		assertEquals(11 + a.magicPower, Analysis.of(CAT, PRICES, owned, new Player(Map.of(), 0, -1, true, true)).magicPower);
+		assertEquals(11 + a.magicPower, Analysis.of(CAT, PRICES, owned, new Player(Map.of(), 0, -1, true, true, COLLECTIONS)).magicPower);
 	}
 
 	@Test
@@ -132,7 +134,7 @@ class AccessoryCalculatorTest {
 		assertEquals(0, ring.slots());
 		assertEquals(78_000, artifact.cost(), 1e-6);
 		assertEquals(5, artifact.gain());
-		assertEquals("craft from your Feather Talisman, needs Feather IX", artifact.how());
+		assertEquals("craft from your Feather Talisman", artifact.how());
 		assertEquals(Kind.UPGRADE, artifact.kind());
 		assertEquals(9, option(a, "FEATHER_ARTIFACT", true).gain());     // epic 12 - 3
 
@@ -160,9 +162,9 @@ class AccessoryCalculatorTest {
 		Analysis unlocked = Analysis.of(CAT, PRICES, owned, player(1, -1, Map.of("slayer_wolf", 5, "hotm", 7)));
 		// 400k of teeth beats the 2M auction once the slayer level allows the recipe
 		assertEquals(400_000, option(unlocked, "RED_CLAW_ARTIFACT", false).cost(), 1e-6);
-		assertEquals("craft, needs Wolf Slayer 5", option(unlocked, "RED_CLAW_ARTIFACT", false).how());
+		assertEquals("craft", option(unlocked, "RED_CLAW_ARTIFACT", false).how());
 		// with crafting off, everything is priced at the auction
-		Analysis buying = Analysis.of(CAT, PRICES, owned, new Player(Map.of("slayer_wolf", 5), 1, -1, false, false));
+		Analysis buying = Analysis.of(CAT, PRICES, owned, new Player(Map.of("slayer_wolf", 5), 1, -1, false, false, COLLECTIONS));
 		assertEquals(2_000_000, option(buying, "RED_CLAW_ARTIFACT", false).cost(), 1e-6);
 		assertEquals(400_000, option(buying, "FEATHER_ARTIFACT", false).cost(), 1e-6);
 		assertEquals("lowest BIN", option(buying, "FEATHER_ARTIFACT", false).how());
@@ -215,6 +217,37 @@ class AccessoryCalculatorTest {
 
 		assertEquals(0, Planner.plan(Analysis.of(CAT, PRICES, owned, full), full, 0, () -> false).gain());
 		assertNull(Planner.plan(Analysis.of(CAT, PRICES, owned, full), full, 1e9, () -> true), "cancelled");
+	}
+
+	@Test
+	void craftsNeedTheCollection() {
+		List<Owned> owned = List.of(bag("FEATHER_TALISMAN", Rarity.COMMON, false, 0));
+		// Feather VIII: the ring's recipe (VII) is open, the artifact's (IX) isn't, so the
+		// artifact is bought at its 400k BIN
+		Analysis eight = Analysis.of(CAT, PRICES, owned, new Player(Map.of(), 1, -1, false, true, Map.of("feather", 8)));
+		assertEquals("craft from your Feather Talisman", option(eight, "FEATHER_RING", false).how());
+		assertEquals(14_000, option(eight, "FEATHER_RING", false).cost(), 1e-6);
+		assertEquals("lowest BIN", option(eight, "FEATHER_ARTIFACT", false).how());
+		assertEquals(400_000, option(eight, "FEATHER_ARTIFACT", false).cost(), 1e-6);
+		assertEquals(Set.of("Feather IX (yours: VIII)"), eight.lowCollections);
+		assertTrue(eight.unknownCollections.isEmpty());
+
+		// never seen: no craft at all, and the analysis says which collections to show
+		Analysis unseen = Analysis.of(CAT, PRICES, owned, new Player(Map.of(), 1, -1, false, true, Map.of()));
+		assertEquals(50_000, option(unseen, "FEATHER_RING", false).cost(), 1e-6);
+		assertEquals("lowest BIN", option(unseen, "FEATHER_RING", false).how());
+		assertEquals(Set.of("Feather VII", "Feather IX"), unseen.unknownCollections);
+
+		// the game and NEU don't always name a collection alike
+		assertEquals(9, Prices.tier(Map.of("redstone", 9), "Redstone Dust"));
+		assertEquals(9, Prices.tier(Map.of("redstone dust", 9), "Redstone"));
+		assertNull(Prices.tier(Map.of("red sand", 9), "Redstone"));
+		assertEquals(new Prices.Collection("Sugar Cane", 6), new Prices.Recipe(Map.of("X", 1), "Sugar Cane VI", null, 0).collection());
+		assertNull(new Prices.Recipe(Map.of("X", 1), "Wolf Slayer 5", "slayer_wolf", 5).collection());
+		assertNull(new Prices.Recipe(Map.of("X", 1), "Museum Milestone 10", null, 0).collection());
+		assertEquals(14, Prices.roman("XIV"));
+		assertEquals(0, Prices.roman("Dust"));
+		assertEquals("XIV", Prices.roman(14));
 	}
 
 	@Test

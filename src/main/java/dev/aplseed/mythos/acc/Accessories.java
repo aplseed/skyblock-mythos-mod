@@ -33,13 +33,13 @@ public final class Accessories {
 
 	public static Analysis.Player player() {
 		Config c = Mythos.config();
-		return new Analysis.Player(c.unlocks, Bag.freeSlots(), c.jacobusUpgrades, c.riftPrism, c.accCraft);
+		return new Analysis.Player(c.unlocks, Bag.freeSlots(), c.jacobusUpgrades, c.riftPrism, c.accCraft, c.collections);
 	}
 
 	/** Everything the analysis depends on, folded into one number. */
 	private static long key() {
 		Config c = Mythos.config();
-		return Objects.hash(AccData.version(), Bag.version(), c.unlocks, c.jacobusUpgrades, c.riftPrism, c.accFreeSlots, c.accCraft);
+		return Objects.hash(AccData.version(), Bag.version(), c.unlocks, c.jacobusUpgrades, c.riftPrism, c.accFreeSlots, c.accCraft, c.collections);
 	}
 
 	/** The scanned bag analysed with current prices, or null until the accessory list has loaded. */
@@ -91,6 +91,11 @@ public final class Accessories {
 			});
 		});
 		return null;
+	}
+
+	/** A step the player crafts rather than buys. */
+	public static boolean crafted(Option o) {
+		return (o.kind() == Analysis.Kind.NEW || o.kind() == Analysis.Kind.UPGRADE) && o.how().startsWith("craft");
 	}
 
 	/** One step of a plan: "Buy Feather Artifact (Epic)" / "Recombobulate Wolf Ring -> Epic". */

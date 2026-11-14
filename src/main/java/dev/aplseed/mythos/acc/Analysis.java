@@ -22,8 +22,11 @@ public final class Analysis {
 	 * `unlocks`: requirement key -> the player's level (missing = not told, treated as locked).
 	 * `jacobusBought`: bag slot upgrades already bought from Jacobus (0-99), or -1 if unknown.
 	 * `craft`: price accessories by their recipe when that's cheaper than buying them.
+	 * `collections`: collection name (lower case) -> tier reached; a missing one was never seen,
+	 * and recipes it unlocks are not crafted.
 	 */
-	public record Player(Map<String, Integer> unlocks, int freeSlots, int jacobusBought, boolean riftPrism, boolean craft) {}
+	public record Player(Map<String, Integer> unlocks, int freeSlots, int jacobusBought, boolean riftPrism, boolean craft,
+			Map<String, Integer> collections) {}
 
 	public record Counted(Owned item, int mp) {}
 
@@ -63,6 +66,10 @@ public final class Analysis {
 	public int locked;
 	/** requirement keys the player hasn't given a level for, that matter here */
 	public final Set<String> unknownUnlocks = new HashSet<>();
+	/** collections never seen whose recipes would have been used: "Feather IX" */
+	public final Set<String> unknownCollections = new java.util.TreeSet<>();
+	/** recipes the player's collections are too low for: "Feather IX (yours: VII)" */
+	public final Set<String> lowCollections = new java.util.TreeSet<>();
 	public double recombPrice;
 	public int recombable;
 
@@ -92,17 +99,31 @@ public final class Analysis {
 	/**
 	 * Cheapest way to get `id` when the line's owned items in `usable` can be crafted into it:
 	 * buying it, or (if the player crafts) its recipe with owned lower tiers free and the rest
-	 * at market price. A recipe behind a slayer level the player lacks isn't an option.
+	 * at market price. A recipe behind a slayer level or collection tier the player lacks (or
+	 * hasn't shown) isn't an option.
 	 */
-	private static Source acquire(Catalog cat, Prices prices, Player player, String id, Set<String> usable, int depth) {
+	private Source acquire(Catalog cat, Prices prices, Player player, String id, Set<String> usable, int depth) {
 		// an accessory can only be bought if a buy-it-now auction for it is up
 		double ah = prices.ah(id);
 		Source best = Double.isNaN(ah) ? null : new Source(ah, false, null, null);
 		Prices.Recipe recipe = !player.craft() || depth > 4 ? null : prices.recipes().get(id);
 		if (recipe == null || recipe.parts().isEmpty()) return best;
 		if (recipe.slayerKey() != null && player.unlocks().getOrDefault(recipe.slayerKey(), -1) < recipe.slayerLevel()) return best;
+		Prices.Collection need = recipe.collection();
+		if (need != null) {
+			Integer have = Prices.tier(player.collections(), need.name());
+			if (have == null) {
+				unknownCollections.add(recipe.needs());
+				return best;
+			}
+			if (have < need.tier()) {
+				lowCollections.add(recipe.needs() + " (yours: " + (have == 0 ? "none" : Prices.roman(have)) + ")");
+				return best;
+			}
+		}
+		// a requirement that was checked needn't be repeated in the step; one that can't be is
 		double sum = 0;
-		String used = null, needs = recipe.needs();
+		String used = null, needs = need != null || recipe.slayerKey() != null ? null : recipe.needs();
 		for (Map.Entry<String, Integer> in : recipe.parts().entrySet()) {
 			String part = in.getKey();
 			int n = in.getValue();

@@ -36,7 +36,8 @@ Panels sit beside the menu on whichever side has room, never over it, and scroll
 Open your Accessory Bag once, every page of it. Mythos records each accessory (id, rarity, whether it's recombobulated) and the empty slots, and keeps the scan in `config/mythos/accessories.json`, so the calculator works afterwards without the bag open. The bag itself gets a panel with your Magical Power, free slots, dupes (tinted red in the bag) and the cheapest power you could buy next.
 
 - **Dupes** - only the best accessory of an upgrade line counts (a Feather Ring makes a Feather Talisman dead weight; party hats are one line). Exact duplicates and lower tiers are listed with the page they're on.
-- **Missing** - every line you don't have, or have a lower tier of, cheapest coins per Magical Power first. Click one to run `/ahs <name>`.
+- **Missing** - every line you don't have, or have a lower tier of, cheapest coins per Magical Power first. Click one to run `/ahs <name>`, or `/recipe <name>` if the cheapest way is to craft it. Steps of a budget plan and the bag panel's list work the same way.
+- **Collections** - open each Collections category once (Farming, Mining...) and Mythos records your tiers. A craft is only recommended when the collection that unlocks its recipe is high enough; until a collection has been seen, its recipes aren't used and the accessory is priced as a purchase. The tiers can also be set in Unlocks or with `/myth acc collection <tier> <name>`.
 - **Budget** - `/myth budget 50m` (or the Budget tab) works out the most Magical Power the coins can buy. It weighs, together:
   - new accessories at their lowest buy-it-now auction (no BIN listed: not buyable), or crafted when that's cheaper;
   - upgrading what you have: the next tiers of a line, crafted *from the tier you own* where the recipe allows, and the cost of the rest of the recipe;
@@ -76,6 +77,7 @@ The mod does nothing on servers other than Hypixel unless you set `onlyOnHypixel
 | `/myth acc` | Opens the accessory calculator |
 | `/myth acc dupes` / `/myth acc missing` | Dupes / cheapest missing accessories, in chat |
 | `/myth acc unlock <requirement> <level>` | Your level for a requirement: `slayer_wolf 7`, `hotm 5`, `trophy_lava 3` (0 none - 4 diamond), `melody 1` |
+| `/myth acc collection <tier> <name>` | A collection's tier, if the menu wasn't read: `collection 9 Feather` |
 | `/myth acc jacobus <upgradesBought>` | Bag upgrades bought from Jacobus (0-99, -1 unknown) |
 | `/myth acc slots <free\|auto>` | Override the free bag slots the scan counted |
 | `/myth acc refresh` / `/myth acc reset` | Reload prices and the item list / forget the scanned bag |
@@ -133,7 +135,8 @@ The accessory calculator calls none of these.
 - **The Attribute Menu syncs one page at a time.** Each of its pages is synced when you open it.
 - **The Accessory Bag reader hasn't been checked against a real menu dump yet.** It expects the title "Accessory Bag" or "Accessory Bag (2/3)", navigation in the bottom row, accessories with a SkyBlock id and a rarity line ending in ACCESSORY or HATCESSORY, empty slots where the bag has room, and some filler item over locked slots. If the free slot count is off, set it with `/myth acc slots <n>` and send an F8 dump of the bag.
 - **Magical Power can differ slightly from the game's.** The Abicase's bonus from contacts isn't counted, and an accessory in the bag that you don't meet the requirement for is counted as if it worked.
-- **Craft prices assume you can craft.** A recipe behind a slayer level you haven't set is skipped, but collection requirements ("needs Feather IX" in the step) can't be checked. Turn off "Craft when it's cheaper" in Unlocks to plan with auction and bazaar prices only. Crafting is assumed to drop a recombobulator on the ingredient.
+- **The Collections reader hasn't been checked against a real menu dump either.** It expects category menus titled "Farming Collections" and so on, with each collection as an item named with its tier ("Feather IX"). If your tiers don't appear under Unlocks after opening them, set them by hand and send an F8 dump.
+- **Recipe requirements other than slayer levels and collections** (shown as "needs ..." in the step) can't be checked. Turn off "Craft when it's cheaper" in Unlocks to plan with auction prices only. Crafting is assumed to drop a recombobulator on the ingredient.
 - **Soulbound and unsold accessories** (campfire badges, the Jacobus Register...) have no price, so they're listed as missing but never planned.
 - **One profile.** The scan isn't tied to a SkyBlock profile; after switching, use "Forget the scan" in Unlocks.
 - **The Hunting Box planner only sees the page that's open.** It counts the shards shown on the current page plus your inventory.

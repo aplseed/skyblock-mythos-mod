@@ -8,6 +8,7 @@ import dev.aplseed.mythos.acc.Analysis;
 import dev.aplseed.mythos.acc.Bag;
 import dev.aplseed.mythos.acc.Catalog;
 import dev.aplseed.mythos.acc.Planner;
+import dev.aplseed.mythos.acc.Prices;
 import dev.aplseed.mythos.acc.Rarity;
 import dev.aplseed.mythos.util.Fmt;
 import java.util.ArrayList;
@@ -525,6 +526,11 @@ public final class MythosScreen extends Screen {
 			ly = para("Tell Mythos your slayer and other levels in Unlocks - " + a.unknownUnlocks.size() + " requirement"
 					+ (a.unknownUnlocks.size() == 1 ? " is" : "s are") + " unset, so those accessories are treated as locked.", x, ly + 2, colW, Theme.YELLOW);
 		}
+		if (c.accCraft && !a.unknownCollections.isEmpty()) {
+			ly = para("Open your Collections menus (each category) - " + a.unknownCollections.size() + " recipe"
+					+ (a.unknownCollections.size() == 1 ? "" : "s") + " can't be checked yet, so those accessories are priced as purchases.",
+					x, ly + 2, colW, Theme.YELLOW);
+		}
 		if (c.jacobusUpgrades < 0) ly = para("Set your Jacobus upgrades in Unlocks to let budgets buy more bag slots.", x, ly, colW, Theme.FAINT);
 
 		int rx = wide ? x + colW + 12 : x, ry = wide ? y : ly + 6;
@@ -580,10 +586,10 @@ public final class MythosScreen extends Screen {
 			Catalog.Acc acc = m.acc();
 			String name = acc.name();
 			String how = m.locked() != null ? m.locked() : buyable ? (m.upgrade() ? "upgrade, " : "") + m.how() : acc.soulbound() ? "soulbound: earn it" : "not sold";
-			boolean ah = buyable && !m.how().startsWith("craft");
+			boolean ah = buyable && !m.how().startsWith("craft"), craft = buyable && !ah;
 			itemRow(name, m.locked() != null ? Theme.FAINT : acc.tier().color, how, buyable ? Fmt.coins(m.price()) : "-", "+" + m.gain(), x, y, bw,
-					buyable ? name + ": " + m.how() + ", " + Fmt.coins(m.perMp()) + " per MP" + (ah ? " - click: /ahs " + name : "") : name + ": " + how,
-					ah ? () -> Mythos.auctionSearch(name) : null);
+					buyable ? name + ": " + m.how() + ", " + Fmt.coins(m.perMp()) + " per MP - click: " + (ah ? "/ahs " : "/recipe ") + name : name + ": " + how,
+					ah ? () -> Mythos.auctionSearch(name) : craft ? () -> Mythos.recipe(name) : null);
 			y += ROW;
 		}
 		if (shown == 0) y = para(Bag.complete() ? "Nothing left to get. Impressive." : "Nothing to list yet.", x, y, bw, Theme.MUTED);
@@ -656,10 +662,11 @@ public final class MythosScreen extends Screen {
 				continue;
 			}
 			boolean ah = (o.kind() == Analysis.Kind.NEW || o.kind() == Analysis.Kind.UPGRADE) && !o.how().startsWith("craft");
+			boolean craft = Accessories.crafted(o);
 			String name = o.name();
 			itemRow(n + ". " + Accessories.describe(o), o.result().color, o.how(), o.cost() == 0 ? "free" : Fmt.coins(o.cost()), "+" + o.gain(), x, y, bw,
-					Accessories.describe(o) + ": " + o.how() + ", " + Fmt.coins(o.perMp()) + " per MP" + (ah ? " - click: /ahs " + name : ""),
-					ah ? () -> Mythos.auctionSearch(name) : null);
+					Accessories.describe(o) + ": " + o.how() + ", " + Fmt.coins(o.perMp()) + " per MP" + (ah ? " - click: /ahs " + name : craft ? " - click: /recipe " + name : ""),
+					ah ? () -> Mythos.auctionSearch(name) : craft ? () -> Mythos.recipe(name) : null);
 			y += ROW;
 		}
 		y += 4;
@@ -679,6 +686,31 @@ public final class MythosScreen extends Screen {
 			Mythos.toast("Mythos", "Plan copied");
 		});
 		return y + 18;
+	}
+
+	/** The collections accessory recipes need, with the tier Mythos has seen for each. */
+	private int collections(Analysis a, int x, int y, int bw) {
+		Config c = Mythos.config();
+		y = section("Collections for crafts", "read from the Collections menus", x, y, bw);
+		Map<String, Integer> needed = new java.util.TreeMap<>();
+		for (Prices.Recipe r : AccData.prices().recipes().values()) {
+			Prices.Collection need = r.collection();
+			if (need != null && !r.parts().isEmpty()) needed.merge(need.name(), need.tier(), Math::max);
+		}
+		if (needed.isEmpty()) return para("Recipes haven't loaded yet.", x, y, bw, Theme.MUTED);
+		for (Map.Entry<String, Integer> e : needed.entrySet()) {
+			String key = e.getKey().toLowerCase(java.util.Locale.ROOT);
+			Integer have = Prices.tier(c.collections, e.getKey());
+			y = stepper(e.getKey(), have == null ? "not seen" : have == 0 ? "none" : Prices.roman(have),
+					have == null ? Theme.YELLOW : have >= e.getValue() ? Theme.GREEN : Theme.TEXT, x, y, bw,
+					"Recipes need up to " + e.getKey() + " " + Prices.roman(e.getValue()), d -> set(() -> {
+						int v = (have == null ? -1 : have) + d;
+						if (v < 0) c.collections.remove(key);
+						else c.collections.put(key, Math.min(20, v));
+					}));
+		}
+		return para("Open each Collections category in game and these fill in by themselves. A craft is only recommended once its collection is high enough; \"not seen\" counts as locked.",
+				x, y + 2, bw, Theme.FAINT);
 	}
 
 	private int unlocks(Analysis a, int x, int y, int bw) {
@@ -704,6 +736,8 @@ public final class MythosScreen extends Screen {
 			}
 			ly = para("\"not set\" counts as locked. Mythos can't read these levels from the game.", x, ly + 2, colW, Theme.FAINT);
 		}
+
+		ly = collections(a, x, ly + 6, colW);
 
 		int rx = wide ? x + colW + 12 : x, ry = wide ? y : ly + 6;
 		ry = section("Bag slots", null, rx, ry, colW);
