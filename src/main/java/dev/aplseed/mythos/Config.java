@@ -5,6 +5,9 @@ import com.google.gson.GsonBuilder;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.Map;
+import java.util.TreeMap;
 
 /** Settings in .minecraft/config/mythos.json. Only the session token is stored, never the password. */
 public final class Config {
@@ -34,6 +37,19 @@ public final class Config {
 	public int hudX = 4;
 	public int hudY = 60;
 
+	// accessory calculator
+	public boolean accessories = true;
+	/** requirement -> your level: "slayer_wolf": 7, "hotm": 5. Missing = not told, treated as locked. */
+	public Map<String, Integer> unlocks = new TreeMap<>();
+	/** accessory bag upgrades bought from Jacobus (0-99); -1 = unknown, so no slots get planned */
+	public int jacobusUpgrades = -1;
+	public boolean riftPrism = false;
+	/** free bag slots, when the scan counts them wrongly; -1 = count them */
+	public int accFreeSlots = -1;
+	public String accBudget = "";
+	/** price accessories by their recipe when crafting is cheaper than buying */
+	public boolean accCraft = true;
+
 	public static Config load(Path file) {
 		path = file;
 		Config c = null;
@@ -45,14 +61,37 @@ public final class Config {
 			}
 		}
 		if (c == null) c = new Config();
+		c.sanitize();
 		c.save();
 		return c;
 	}
 
+	/** A hand-edited file can null a field or put a setting out of range. */
+	private void sanitize() {
+		Config d = new Config();
+		if (backendUrl == null || backendUrl.isBlank()) backendUrl = d.backendUrl;
+		if (username == null) username = "";
+		if (sessionToken == null) sessionToken = "";
+		if (!"instant_sell".equals(fusionSellMode)) fusionSellMode = "sell_order";
+		forgeSlots = Math.max(2, Math.min(7, forgeSlots));
+		quickForgeLevel = Math.max(0, Math.min(20, quickForgeLevel));
+		pureReptileLevel = Math.max(0, Math.min(20, pureReptileLevel));
+		hudX = Math.max(0, hudX);
+		hudY = Math.max(0, hudY);
+		if (unlocks == null) unlocks = new TreeMap<>();
+		unlocks.values().removeIf(v -> v == null);
+		jacobusUpgrades = Math.max(-1, Math.min(99, jacobusUpgrades));
+		if (accBudget == null) accBudget = "";
+	}
+
 	public void save() {
+		if (path == null) return;
 		try {
 			Files.createDirectories(path.getParent());
-			Files.writeString(path, GSON.toJson(this));
+			// write beside the file, then swap: a crash mid-write can't leave half a config
+			Path tmp = path.resolveSibling(path.getFileName() + ".tmp");
+			Files.writeString(tmp, GSON.toJson(this));
+			Files.move(tmp, path, StandardCopyOption.REPLACE_EXISTING);
 		} catch (IOException e) {
 			Mythos.LOG.warn("Couldn't save {}: {}", path, e.toString());
 		}

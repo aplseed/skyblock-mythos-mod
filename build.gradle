@@ -3,7 +3,8 @@ plugins {
 	id 'net.fabricmc.fabric-loom' version "${loom_version}"
 }
 
-version = project.mod_version
+// one jar per Minecraft version: mythos-0.2.0+mc26.3.jar
+version = "${project.mod_version}+mc${project.minecraft_version}"
 group = project.maven_group
 
 base {
@@ -14,12 +15,22 @@ dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// plain unit tests for the accessory calculator (src/test); no game needed
+	testImplementation platform('org.junit:junit-bom:5.13.4')
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+	useJUnitPlatform()
 }
 
 processResources {
 	inputs.property 'version', project.version
+	inputs.property 'minecraft', project.minecraft_version
 	filesMatching('fabric.mod.json') {
-		expand 'version': project.version
+		expand 'version': project.version, 'minecraft': project.minecraft_version
 	}
 }
 

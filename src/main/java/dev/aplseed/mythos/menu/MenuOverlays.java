@@ -33,6 +33,9 @@ public final class MenuOverlays {
 			// a left click on a panel link runs it instead of reaching the menu
 			ScreenMouseEvents.allowMouseClick(screen).register((s, click) ->
 					click.button() != 0 || !Mythos.config().overlays || !Panel.click(click.x(), click.y()));
+			// the wheel scrolls a panel taller than the screen
+			ScreenMouseEvents.allowMouseScroll(screen).register((s, mx, my, dx, dy) ->
+					!Mythos.config().overlays || !Panel.scroll(mx, my, dy));
 			ScreenKeyboardEvents.afterKeyPress(screen).register((s, key) -> {
 				if (Mythos.DUMP_KEY.matches(key)) MenuDump.dump(new Menu(acs));
 				else if (Mythos.OVERLAY_KEY.matches(key)) Mythos.toggleOverlays();
@@ -63,7 +66,10 @@ public final class MenuOverlays {
 		}
 
 		void render(GuiGraphicsExtractor g, int mx, int my) {
-			if (menu == null || !Mythos.config().overlays) return;
+			if (menu == null || !Mythos.config().overlays) {
+				Panel.clear();
+				return;
+			}
 			g.nextStratum();
 			Panel panel = new Panel();
 			Menu.Entry hovered = menu.at(mx, my);

@@ -1,56 +1,28 @@
 package dev.aplseed.mythos;
 
-import com.google.gson.JsonObject;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
+import dev.aplseed.mythos.acc.AccData;
+import dev.aplseed.mythos.acc.Accessories;
+import dev.aplseed.mythos.acc.Analysis;
+import dev.aplseed.mythos.acc.Bag;
+import dev.aplseed.mythos.acc.Catalog;
+import dev.aplseed.mythos.acc.Planner;
 import dev.aplseed.mythos.data.ShardIndex;
 import dev.aplseed.mythos.feature.ShardTracker;
-import dev.aplseed.mythos.net.Json;
-import java.util.function.Consumer;
+import dev.aplseed.mythos.ui.MythosScreen;
+import dev.aplseed.mythos.util.Fmt;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 
-/** /myth: login, settings and feature toggles. */
+/** /myth: the Mythos window, login, settings, feature toggles and the accessory calculator. */
 final class Commands {
 	private Commands() {}
-
-	private interface Toggle {
-		boolean get(Config c);
-
-		void set(Config c, boolean v);
-	}
-
-	private static final String[] FEATURES = {"fusion", "absorb", "bazaar", "forge", "election", "warnings", "shards", "panels"};
-
-	private static Toggle toggle(String name) {
-		return switch (name) {
-			case "fusion" -> of(c -> c.fusionPlanner, (c, v) -> c.fusionPlanner = v);
-			case "absorb" -> of(c -> c.absorbSync, (c, v) -> c.absorbSync = v);
-			case "bazaar" -> of(c -> c.bazaarPanel, (c, v) -> c.bazaarPanel = v);
-			case "forge" -> of(c -> c.forgeAdvisor, (c, v) -> c.forgeAdvisor = v);
-			case "election" -> of(c -> c.electionPanel, (c, v) -> c.electionPanel = v);
-			case "warnings" -> of(c -> c.sellWarnings, (c, v) -> c.sellWarnings = v);
-			case "shards" -> of(c -> c.shardTracker, (c, v) -> c.shardTracker = v);
-			case "panels" -> of(c -> c.overlays, (c, v) -> c.overlays = v);
-			default -> null;
-		};
-	}
-
-	private static Toggle of(java.util.function.Predicate<Config> get, java.util.function.BiConsumer<Config, Boolean> set) {
-		return new Toggle() {
-			public boolean get(Config c) {
-				return get.test(c);
-			}
-
-			public void set(Config c, boolean v) {
-				set.accept(c, v);
-			}
-		};
-	}
 
 	static void register() {
 		ClientCommandRegistrationCallback.EVENT.register((dispatcher, ctx) -> register(dispatcher));
@@ -58,24 +30,31 @@ final class Commands {
 
 	private static void register(CommandDispatcher<FabricClientCommandSource> d) {
 		d.register(ClientCommands.literal("myth")
-				.executes(c -> status())
+				.executes(c -> {
+					Mythos.open(null);
+					return 1;
+				})
+				.then(ClientCommands.literal("status").executes(c -> status()))
 				.then(ClientCommands.literal("login")
 						.then(ClientCommands.argument("user", StringArgumentType.word())
 								.then(ClientCommands.argument("password", StringArgumentType.greedyString())
 										.executes(c -> login(StringArgumentType.getString(c, "user"), StringArgumentType.getString(c, "password"))))))
-				.then(ClientCommands.literal("logout").executes(c -> logout()))
+				.then(ClientCommands.literal("logout").executes(c -> {
+					Mythos.backend().logout();
+					Mythos.chat("Logged out");
+					return 1;
+				}))
 				.then(ClientCommands.literal("url")
 						.then(ClientCommands.argument("url", StringArgumentType.greedyString())
 								.executes(c -> {
-									Mythos.config().backendUrl = StringArgumentType.getString(c, "url").trim();
-									Mythos.config().save();
-									Mythos.chat("Backend: " + Mythos.config().backendUrl);
-									return 1;
+									String problem = Mythos.setBackendUrl(StringArgumentType.getString(c, "url"));
+									Mythos.chat(problem != null ? "§c" + problem : "Server: " + Mythos.config().backendUrl);
+									return problem == null ? 1 : 0;
 								})))
 				.then(ClientCommands.literal("toggle")
 						.then(ClientCommands.argument("feature", StringArgumentType.word())
 								.suggests((c, b) -> {
-									for (String f : FEATURES) b.suggest(f);
+									for (Mythos.Feature f : Mythos.FEATURES) b.suggest(f.id());
 									return b.buildFuture();
 								})
 								.executes(Commands::toggle)))
@@ -118,23 +97,171 @@ final class Commands {
 							return 1;
 						})))
 				.then(ClientCommands.literal("hud")
-						.then(ClientCommands.argument("x", IntegerArgumentType.integer(0))
-								.then(ClientCommands.argument("y", IntegerArgumentType.integer(0))
+						.then(ClientCommands.argument("x", IntegerArgumentType.integer(0, 4000))
+								.then(ClientCommands.argument("y", IntegerArgumentType.integer(0, 4000))
 										.executes(c -> {
 											Mythos.config().hudX = IntegerArgumentType.getInteger(c, "x");
 											Mythos.config().hudY = IntegerArgumentType.getInteger(c, "y");
 											Mythos.config().save();
+											Mythos.chat("Shard HUD at " + Mythos.config().hudX + ", " + Mythos.config().hudY);
 											return 1;
-										})))));
+										}))))
+				.then(ClientCommands.literal("budget")
+						.then(ClientCommands.argument("coins", StringArgumentType.greedyString())
+								.executes(c -> budget(StringArgumentType.getString(c, "coins")))))
+				.then(accessories()));
+	}
+
+	/** /myth acc ...: the accessory calculator from chat. */
+	private static LiteralArgumentBuilder<FabricClientCommandSource> accessories() {
+		return ClientCommands.literal("acc")
+				.executes(c -> {
+					Mythos.open(MythosScreen.Tab.ACCESSORIES);
+					return 1;
+				})
+				.then(ClientCommands.literal("budget")
+						.then(ClientCommands.argument("coins", StringArgumentType.greedyString())
+								.executes(c -> budget(StringArgumentType.getString(c, "coins")))))
+				.then(ClientCommands.literal("dupes").executes(c -> dupes()))
+				.then(ClientCommands.literal("missing").executes(c -> missing()))
+				.then(ClientCommands.literal("unlock")
+						.then(ClientCommands.argument("requirement", StringArgumentType.word())
+								.suggests((c, b) -> {
+									Catalog cat = AccData.catalog();
+									if (cat != null) cat.reqKeys.keySet().forEach(b::suggest);
+									return b.buildFuture();
+								})
+								.then(ClientCommands.argument("level", IntegerArgumentType.integer(0, 99))
+										.executes(c -> {
+											String key = StringArgumentType.getString(c, "requirement");
+											int level = IntegerArgumentType.getInteger(c, "level");
+											Mythos.config().unlocks.put(key, level);
+											Mythos.config().save();
+											Mythos.chat(Catalog.label(key) + ": " + Catalog.levelName(key, level));
+											return 1;
+										}))))
+				.then(ClientCommands.literal("jacobus")
+						.then(ClientCommands.argument("upgradesBought", IntegerArgumentType.integer(-1, Planner.JACOBUS_MAX))
+								.executes(c -> {
+									int n = IntegerArgumentType.getInteger(c, "upgradesBought");
+									Mythos.config().jacobusUpgrades = n;
+									Mythos.config().save();
+									Mythos.chat(n < 0 ? "Jacobus upgrades: unknown - budgets won't buy bag slots"
+											: "Jacobus upgrades: " + n + " bought" + (n < Planner.JACOBUS_MAX ? ", the next costs " + Fmt.coins(Planner.jacobusPrice(n + 1)) : " (all of them)"));
+									return 1;
+								})))
+				.then(ClientCommands.literal("slots")
+						.then(ClientCommands.literal("auto").executes(c -> freeSlots(-1)))
+						.then(ClientCommands.argument("free", IntegerArgumentType.integer(0, 300))
+								.executes(c -> freeSlots(IntegerArgumentType.getInteger(c, "free")))))
+				.then(ClientCommands.literal("refresh").executes(c -> {
+					AccData.refresh(true);
+					Mythos.chat("Reloading the accessory list and prices");
+					return 1;
+				}))
+				.then(ClientCommands.literal("reset").executes(c -> {
+					Bag.clear();
+					Mythos.chat("Forgot the scanned bag - open your Accessory Bag to scan it again");
+					return 1;
+				}));
+	}
+
+	private static int freeSlots(int n) {
+		Mythos.config().accFreeSlots = n;
+		Mythos.config().save();
+		Mythos.chat("Free bag slots: " + (n < 0 ? "counted from the scan (" + Bag.freeSlots() + ")" : n));
+		return 1;
+	}
+
+	/** The scanned bag analysed, or null after telling the player what's missing. */
+	private static Analysis scan() {
+		Analysis a = Accessories.analysis();
+		if (a == null) {
+			Mythos.chat(AccData.status() + " - try again in a moment");
+			return null;
+		}
+		if (!Bag.scanned()) {
+			Mythos.chat("Open your Accessory Bag first (every page), so Mythos knows what you have");
+			return null;
+		}
+		if (!Bag.complete()) Mythos.chat("§eOnly " + Bag.pagesSeen() + " of " + Bag.pages() + " bag pages scanned - open page " + Bag.pagesMissing());
+		return a;
+	}
+
+	private static int budget(String text) {
+		double coins = Fmt.parseCoins(text);
+		if (coins < 0) {
+			Mythos.chat("§cThat isn't an amount. Try /myth budget 50m");
+			return 0;
+		}
+		Analysis a = scan();
+		if (a == null) return 0;
+		if (!AccData.priced()) {
+			Mythos.chat(AccData.status() + " - try again in a moment");
+			return 0;
+		}
+		Mythos.config().accBudget = text.trim();
+		Mythos.config().save();
+		MythosScreen.show(MythosScreen.Sub.BUDGET);
+		pendingBudget = coins;
+		pendingTicks = 0;
+		Accessories.plan(coins);
+		return 1;
+	}
+
+	private static double pendingBudget = -1;
+	private static int pendingTicks;
+
+	/** Prints the plan a /myth budget asked for once the planner is done. */
+	static void tick() {
+		if (pendingBudget < 0) return;
+		Planner.Plan plan = Accessories.plan(pendingBudget);
+		if (plan == null) {
+			if (++pendingTicks > 20 * 60) pendingBudget = -1;
+			return;
+		}
+		pendingBudget = -1;
+		Analysis a = Accessories.analysis();
+		if (a == null) return;
+		for (String l : Accessories.lines(plan, a, 12)) Mythos.chat(l);
+		if (a.locked > 0) Mythos.chat("§7 " + a.locked + " accessory lines are locked for you (/myth acc > Unlocks)");
+	}
+
+	private static int dupes() {
+		Analysis a = scan();
+		if (a == null) return 0;
+		if (a.dupes.isEmpty()) {
+			Mythos.chat("No dupes: all " + a.counted.size() + " accessories in the bag count");
+			return 1;
+		}
+		Mythos.chat("§c" + a.dupes.size() + " dupe" + (a.dupes.size() == 1 ? "" : "s") + "§r wasting bag slots:");
+		for (Analysis.Dupe d : a.dupes) {
+			Mythos.chat(" " + d.item().name() + " §7(page " + d.item().page() + ") - " + (d.sameItem() ? "you have it twice" : "lower tier of " + d.kept().name()));
+		}
+		return 1;
+	}
+
+	private static int missing() {
+		Analysis a = scan();
+		if (a == null) return 0;
+		int shown = 0, buyable = 0;
+		for (Analysis.Missing m : a.missing) {
+			if (m.locked() != null || Double.isNaN(m.price())) continue;
+			buyable++;
+			if (shown++ < 10) Mythos.chat(" " + m.acc().name() + " §7- " + Fmt.coins(m.price()) + ", §d+" + m.gain() + " MP§7 (" + m.how() + ")");
+		}
+		Mythos.chat(a.magicPower + " Magical Power. " + buyable + " lines to buy" + (buyable > 10 ? " (cheapest per MP above)" : "") + ", " + a.locked
+				+ " locked, " + (a.missing.size() - buyable - a.locked) + " without a price - /myth acc lists them all");
+		return 1;
 	}
 
 	private static int status() {
 		Config c = Mythos.config();
-		Mythos.chat("Backend " + c.backendUrl + " - " + (Mythos.backend().loggedIn() ? "logged in as " + c.username : "not logged in (/myth login <user> <password>)"));
+		Mythos.chat("Server " + c.backendUrl + " - " + (Mythos.backend().loggedIn() ? "logged in as " + c.username : "not logged in (/myth login <user> <password>)"));
 		String err = Mythos.backend().lastError();
 		if (err != null) Mythos.chat("§cLast error: " + err);
 		StringBuilder sb = new StringBuilder("Features:");
-		for (String f : FEATURES) sb.append(toggle(f).get(c) ? " §a" : " §8").append(f);
+		for (Mythos.Feature f : Mythos.FEATURES) sb.append(f.get(c) ? " §a" : " §8").append(f.id());
 		Mythos.chat(sb.toString());
 		Mythos.chat("Forge " + c.forgeSlots + " slots, QF " + c.quickForgeLevel + (c.coleMayor ? ", Cole" : "")
 				+ " - fusion " + c.fusionSellMode + ", PR " + c.pureReptileLevel + (Mythos.active() ? "" : " - §einactive (not on Hypixel)"));
@@ -142,43 +269,24 @@ final class Commands {
 	}
 
 	private static int login(String user, String password) {
-		JsonObject body = new JsonObject();
-		body.addProperty("username", user);
-		body.addProperty("password", password);
-		body.addProperty("client", "mod");
-		Mythos.config().sessionToken = "";
-		Mythos.backend().post("/api/auth/login", body, j -> {
-			Config c = Mythos.config();
-			c.sessionToken = Json.str(j, "token", "");
-			c.username = Json.str(Json.obj(j, "user"), "name", user);
-			c.save();
-			Mythos.chat("Logged in as " + c.username + " (session lasts " + (int) Json.num(j, "expires_days", 30) + " days unused)");
+		Mythos.backend().login(user, password, name -> {
+			Mythos.chat("Logged in as " + name);
 			ShardIndex.refresh(true);
 		}, err -> Mythos.chat("§cLogin failed: " + err));
 		return 1;
 	}
 
-	private static int logout() {
-		Consumer<Object> clear = x -> {
-			Mythos.config().sessionToken = "";
-			Mythos.config().save();
-			Mythos.chat("Logged out");
-		};
-		Mythos.backend().post("/api/auth/logout", new JsonObject(), clear::accept, clear::accept);
-		return 1;
-	}
-
 	private static int toggle(CommandContext<FabricClientCommandSource> ctx) {
 		String name = StringArgumentType.getString(ctx, "feature");
-		Toggle t = toggle(name);
-		if (t == null) {
-			Mythos.chat("Unknown feature. One of: " + String.join(", ", FEATURES));
+		Mythos.Feature f = Mythos.feature(name);
+		if (f == null) {
+			Mythos.chat("Unknown feature. One of: " + String.join(", ", Mythos.FEATURES.stream().map(Mythos.Feature::id).toList()));
 			return 0;
 		}
 		Config c = Mythos.config();
-		t.set(c, !t.get(c));
+		f.set(c, !f.get(c));
 		c.save();
-		Mythos.chat(name + " " + (t.get(c) ? "§aon" : "§8off"));
+		Mythos.chat(f.label() + " " + (f.get(c) ? "§aon" : "§8off"));
 		return 1;
 	}
 }

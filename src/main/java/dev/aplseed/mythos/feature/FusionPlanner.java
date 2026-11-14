@@ -7,6 +7,7 @@ import dev.aplseed.mythos.menu.Menu;
 import dev.aplseed.mythos.menu.MenuFeature;
 import dev.aplseed.mythos.net.Json;
 import dev.aplseed.mythos.ui.Panel;
+import dev.aplseed.mythos.ui.Theme;
 import dev.aplseed.mythos.util.Fmt;
 import dev.aplseed.mythos.util.Items;
 import java.util.HashMap;
@@ -94,7 +95,10 @@ public final class FusionPlanner implements MenuFeature {
 		body.addProperty("sell", Mythos.config().fusionSellMode);
 		body.addProperty("pr", Mythos.config().pureReptileLevel);
 		Mythos.backend().post("/api/shards/optimize-inventory", body, this::accept,
-				err -> status = "Plan failed: " + err);
+				err -> {
+					status = "Plan failed: " + err;
+					requestedFor = 0;     // a changed menu, or reopening it, asks again
+				});
 	}
 
 	private void accept(JsonObject j) {
@@ -112,7 +116,7 @@ public final class FusionPlanner implements MenuFeature {
 	@Override
 	public void render(Menu menu, Menu.Entry hovered, GuiGraphicsExtractor g, Panel panel) {
 		if (pending != null) recount(pending);
-		panel.header("Fusion plan");
+		panel.header("Fusion plan", Mythos.config().fusionSellMode.equals("sell_order") ? "sell orders" : "instant sell");
 		long total = counts.values().stream().mapToLong(Long::longValue).sum();
 		if (!counts.isEmpty()) panel.line(counts.size() + " shard types, " + total + " shards", Panel.GRAY);
 		if (status != null) panel.line(status, Panel.GRAY);
@@ -122,25 +126,22 @@ public final class FusionPlanner implements MenuFeature {
 			for (Menu.Entry e : list) {
 				ShardIndex.Shard s = ShardIndex.of(e);
 				if (s == null) continue;
-				int color = fuseNames.contains(s.name()) ? 0x6055FF55 : sellByName.containsKey(s.name()) ? 0x50FFAA00 : 0;
-				if (color != 0) {
-					int x = menu.slotX(e.slot()), y = menu.slotY(e.slot());
-					g.fill(x, y, x + 16, y + 16, color);
-				}
+				int color = fuseNames.contains(s.name()) ? Theme.GREEN : sellByName.containsKey(s.name()) ? Theme.GOLD : 0;
+				if (color != 0) Theme.slot(g, menu.slotX(e.slot()), menu.slotY(e.slot()), color);
 			}
 		}
 
 		double value = Json.num(plan, "total_value", 0), raw = Json.num(plan, "value_if_sold_raw", 0);
-		panel.line("Worth " + Fmt.coins(value) + " (raw " + Fmt.coins(raw) + ")", Panel.WHITE);
-		panel.line("Fusing adds " + Fmt.signed(Json.num(plan, "uplift", 0)), Panel.GREEN);
+		panel.kv("Worth", Fmt.coins(value) + " (raw " + Fmt.coins(raw) + ")");
+		panel.kv("Fusing adds", Fmt.signed(Json.num(plan, "uplift", 0)), Panel.GREEN);
 		List<JsonObject> fusions = Json.objs(plan, "fusions");
 		if (!fusions.isEmpty()) {
 			panel.line((int) Json.num(plan, "fusion_count", 0) + " fusions, ~"
 					+ Fmt.hours(Json.num(plan, "fusion_hours", 0)) + ":", Panel.GRAY);
 			for (JsonObject f : fusions.subList(0, Math.min(8, fusions.size()))) {
-				panel.line((int) Json.num(f, "count", 0) + "x " + Json.str(f, "in1_name", "?") + " + "
-						+ Json.str(f, "in2_name", "?") + " -> " + Json.str(f, "output_name", "?")
-						+ "  " + Fmt.signed(Json.num(f, "total_profit", 0)), Panel.GREEN);
+				panel.row((int) Json.num(f, "count", 0) + "x " + Json.str(f, "in1_name", "?") + " + "
+						+ Json.str(f, "in2_name", "?") + " -> " + Json.str(f, "output_name", "?"),
+						Fmt.signed(Json.num(f, "total_profit", 0)), Panel.GREEN);
 			}
 			if (fusions.size() > 8) panel.line("+" + (fusions.size() - 8) + " more", Panel.DARK);
 		}
@@ -148,8 +149,7 @@ public final class FusionPlanner implements MenuFeature {
 		if (!sell.isEmpty()) {
 			panel.line("Sell raw:", Panel.GRAY);
 			for (JsonObject s : sell.subList(0, Math.min(5, sell.size()))) {
-				panel.line((int) Json.num(s, "qty", 0) + "x " + Json.str(s, "name", "?") + "  "
-						+ Fmt.coins(Json.num(s, "total", 0)), Panel.GOLD);
+				panel.row((int) Json.num(s, "qty", 0) + "x " + Json.str(s, "name", "?"), Fmt.coins(Json.num(s, "total", 0)), Panel.GOLD);
 			}
 		}
 

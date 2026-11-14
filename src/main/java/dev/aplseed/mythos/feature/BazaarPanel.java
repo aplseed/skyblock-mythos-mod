@@ -35,7 +35,8 @@ public final class BazaarPanel implements MenuFeature {
 
 	@Override
 	public boolean matches(String title) {
-		return title.startsWith("Bazaar") || title.contains("➜");
+		// product and category pages are "Farming ➜ Wheat"; so are a few other menus (the Museum's)
+		return title.startsWith("Bazaar") || (title.contains("➜") && !title.startsWith("Museum"));
 	}
 
 	/** Null while loading or after a failed fetch (retried after TTL_MS). */
@@ -74,15 +75,15 @@ public final class BazaarPanel implements MenuFeature {
 		JsonObject it = intel(id);
 		panel.header(it == null ? id : Json.str(it, "name", id));
 		if (it == null) {
-			panel.line(loading.contains(id) ? "Loading..." : "Unavailable: " + Mythos.backend().lastError(), Panel.GRAY);
+			panel.line(Mythos.backend().waiting(loading.contains(id) ? "Loading..." : "No data for this item"), Panel.GRAY);
 			return;
 		}
 		boolean any = false;
 		for (JsonObject s : Json.objs(it, "signals")) {
 			any = true;
 			boolean buy = "buy".equals(Json.str(s, "side", ""));
-			panel.line((buy ? "▲ " : "▼ ") + Json.str(s, "label", "?") + "  "
-					+ Math.round(Json.num(s, "confidence", 0) * 100) + "% conf", buy ? Panel.GREEN : Panel.RED);
+			panel.row((buy ? "▲ " : "▼ ") + Json.str(s, "label", "?"),
+					Math.round(Json.num(s, "confidence", 0) * 100) + "% conf", buy ? Panel.GREEN : Panel.RED);
 			JsonObject r = Json.obj(s, "record");
 			int n = (int) Json.num(r, "n", 0);
 			if ("terms".equals(Json.str(r, "unit", ""))) {

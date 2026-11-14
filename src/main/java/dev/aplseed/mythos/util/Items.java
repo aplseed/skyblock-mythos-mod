@@ -43,6 +43,12 @@ public final class Items {
 		return d.copyTag().getStringOr("id", "");
 	}
 
+	/** An integer from the item's SkyBlock data ("rarity_upgrades": 1 on recombobulated items), or 0. */
+	public static int customInt(ItemStack s, String key) {
+		CustomData d = s.get(DataComponents.CUSTOM_DATA);
+		return d == null ? 0 : d.copyTag().getIntOr(key, 0);
+	}
+
 	/** First integer after `label` in any lore line ("Stored: 1,234" -> 1234), or -1. */
 	public static long loreNumber(List<String> lore, Pattern label) {
 		for (String line : lore) {
