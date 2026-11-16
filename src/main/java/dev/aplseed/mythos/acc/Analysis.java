@@ -104,7 +104,7 @@ public final class Analysis {
 	 */
 	private Source acquire(Catalog cat, Prices prices, Player player, String id, Set<String> usable, int depth) {
 		// an accessory can only be bought if a buy-it-now auction for it is up
-		double ah = prices.ah(id);
+		double ah = prices.bin(id);
 		Source best = Double.isNaN(ah) ? null : new Source(ah, false, null, null);
 		Prices.Recipe recipe = !player.craft() || depth > 4 ? null : prices.recipes().get(id);
 		if (recipe == null || recipe.parts().isEmpty()) return best;
@@ -132,7 +132,7 @@ public final class Analysis {
 				continue;
 			}
 			boolean accessory = cat.byId.containsKey(part);
-			double each = accessory ? prices.ah(part) : prices.market(part);
+			double each = accessory ? prices.bin(part) : prices.market(part);
 			if (accessory) {     // a lower tier: BIN only, or maybe cheaper to craft that too
 				Source sub = acquire(cat, prices, player, part, usable, depth + 1);
 				if (sub != null && sub.craft && (Double.isNaN(each) || sub.cost < each)) {

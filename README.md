@@ -50,7 +50,7 @@ Open your Accessory Bag once, every page of it. Mythos records each accessory (i
 
 Magical Power per rarity: Common 3, Uncommon 5, Rare 8, Epic 12, Legendary 16, Mythic 22, Special 3, Very Special 5. The Hegemony Artifact counts twice; a consumed Rift Prism (+11) is a switch in Unlocks.
 
-Data comes from Hypixel's public item list and bazaar (`api.hypixel.net`), upgrade lines and recipes from the NotEnoughUpdates repo (`raw.githubusercontent.com`), and lowest BINs from the first of `moulberry.codes` and `hysky.de` that answers. An accessory is only ever planned as a purchase when a buy-it-now auction for it is listed; one without a BIN is either crafted or left out. Prices refresh every 5 minutes; the item list is cached for a day and recipes for a week in `config/mythos/cache`.
+Data comes from Hypixel's public item list and bazaar (`api.hypixel.net`), upgrade lines and recipes from the NotEnoughUpdates repo (`raw.githubusercontent.com`), and and accessory prices from Hypixel's own list of active auctions. An accessory is only ever planned as a purchase when a buy-it-now auction for it is open right now (not ended, not already bought); one without is either crafted or left out. Third-party lowest-BIN lists (`moulberry.codes`, then `hysky.de`) are used for crafting ingredients only, because they keep the last price of items nobody is selling any more. Prices refresh every 5 minutes and the auction list (about 40 requests of a megabyte each) every 10, both only while the calculator or the bag is in use; the item list is cached for a day and recipes for a week in `config/mythos/cache`.
 
 ## Setup
 

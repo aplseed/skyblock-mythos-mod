@@ -250,6 +250,44 @@ class AccessoryCalculatorTest {
 		assertEquals("XIV", Prices.roman(14));
 	}
 
+	/** An auction as Hypixel lists it; item_bytes is base64 of gzipped NBT holding the SkyBlock id. */
+	static String auction(String id, String category, boolean bin, double price, double bid, long end) throws Exception {
+		java.io.ByteArrayOutputStream nbt = new java.io.ByteArrayOutputStream();
+		// a short tag also named "id" (the item's numeric id) comes first, as in the real data
+		nbt.write(new byte[] {10, 0, 0, 2, 0, 2, 'i', 'd', 1, 5, 8, 0, 2, 'i', 'd', 0, (byte) id.length()});
+		nbt.write(id.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		nbt.write(0);
+		java.io.ByteArrayOutputStream zipped = new java.io.ByteArrayOutputStream();
+		try (java.util.zip.GZIPOutputStream gz = new java.util.zip.GZIPOutputStream(zipped)) {
+			gz.write(nbt.toByteArray());
+		}
+		return "{\"uuid\":\"x\",\"coop\":[\"a\"],\"item_lore\":\"lore\",\"category\":\"" + category + "\",\"starting_bid\":" + (long) price
+				+ ",\"highest_bid_amount\":" + (long) bid + ",\"end\":" + end + ",\"claimed\":false,\"bin\":" + bin
+				+ ",\"bids\":[],\"item_bytes\":\"" + java.util.Base64.getEncoder().encodeToString(zipped.toByteArray()) + "\"}";
+	}
+
+	@Test
+	void onlyOpenBinAuctionsCount() throws Exception {
+		long now = 1_000_000;
+		String page = "{\"success\":true,\"page\":0,\"totalPages\":7,\"auctions\":[" + String.join(",",
+				auction("FEATHER_RING", "accessories", true, 60_000, 0, now + 5_000),
+				auction("FEATHER_RING", "accessories", true, 45_000, 0, now + 5_000),
+				auction("RUNEBOOK", "accessories", false, 10_000, 0, now + 5_000),       // a bidding auction
+				auction("WOLF_RING", "accessories", true, 70_000, 70_000, now + 5_000),  // bought, not claimed yet
+				auction("SPEED_TALISMAN", "accessories", true, 5_000, 0, now - 1),       // ran out
+				auction("DIAMOND_SWORD", "weapon", true, 1, 0, now + 5_000)) + "]}";
+		Map<String, Double> lowest = new java.util.HashMap<>();
+		assertEquals(7, Auctions.page(new java.io.StringReader(page), now, lowest));
+		assertEquals(Map.of("FEATHER_RING", 45_000.0), lowest);
+
+		// a price list may still carry the Runebook; without an open BIN it can't be bought
+		Prices stale = new Prices(Map.of("PANDORAS_BOX", 10_000.0, "SPEED_TALISMAN", 5_000.0), Map.of(), Map.of(), Map.of("SPEED_TALISMAN", 5_000.0));
+		Analysis a = Analysis.of(CAT, stale, List.of(), player(5, -1, Map.of()));
+		assertNull(option(a, "PANDORAS_BOX", false));
+		assertNotNull(option(a, "SPEED_TALISMAN", false));
+		assertTrue(a.missing.stream().anyMatch(m -> m.acc().id().equals("PANDORAS_BOX") && Double.isNaN(m.price())));
+	}
+
 	@Test
 	void jacobusPrices() {
 		assertEquals(1_500_000, Planner.jacobusCost(0, 1), 0);

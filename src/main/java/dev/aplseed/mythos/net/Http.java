@@ -22,6 +22,30 @@ public final class Http {
 
 	private Http() {}
 
+	/** Something that reads a response body as it arrives. */
+	public interface Parser<T> {
+		T parse(java.io.Reader body) throws java.io.IOException;
+	}
+
+	/** Like {@link #json}, but hands the body to `parser` as a stream instead of building a tree. */
+	public static <T> CompletableFuture<T> stream(String url, Parser<T> parser) {
+		HttpRequest req = HttpRequest.newBuilder(URI.create(url))
+				.timeout(Duration.ofSeconds(60))
+				.header("Accept", "application/json")
+				.header("Accept-Encoding", "gzip")
+				.header("User-Agent", "mythos-mod")
+				.GET().build();
+		return CLIENT.sendAsync(req, HttpResponse.BodyHandlers.ofInputStream()).thenApplyAsync(resp -> {
+			try (java.io.InputStream raw = resp.body()) {
+				if (resp.statusCode() != 200) throw new IllegalStateException("HTTP " + resp.statusCode());
+				boolean gzip = resp.headers().firstValue("Content-Encoding").map(v -> v.contains("gzip")).orElse(false);
+				return parser.parse(new InputStreamReader(gzip ? new GZIPInputStream(raw) : raw, StandardCharsets.UTF_8));
+			} catch (java.io.IOException e) {
+				throw new IllegalStateException("bad response", e);
+			}
+		});
+	}
+
 	/** Fetches and parses off the client thread; fails on anything but a 200 with JSON in it. */
 	public static CompletableFuture<JsonElement> json(String url) {
 		HttpRequest req = HttpRequest.newBuilder(URI.create(url))

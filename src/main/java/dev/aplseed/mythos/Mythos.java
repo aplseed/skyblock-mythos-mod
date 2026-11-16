@@ -2,7 +2,6 @@ package dev.aplseed.mythos;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.aplseed.mythos.data.ShardIndex;
-import dev.aplseed.mythos.acc.AccData;
 import dev.aplseed.mythos.feature.AbsorbSync;
 import dev.aplseed.mythos.feature.BagScanner;
 import dev.aplseed.mythos.feature.BazaarPanel;
@@ -211,7 +210,6 @@ public final class Mythos implements ClientModInitializer {
 		ClientPlayConnectionEvents.JOIN.register((handler, sender, mc) -> {
 			if (!active()) return;
 			if (backend.loggedIn()) ShardIndex.refresh(false);
-			if (config.accessories) AccData.refresh(false);
 			SellWarnings.joined();
 		});
 		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(ID, "shard_session"), (g, delta) -> ShardTracker.renderHud(g));

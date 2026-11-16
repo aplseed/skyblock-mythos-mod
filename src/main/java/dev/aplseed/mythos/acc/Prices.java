@@ -2,8 +2,18 @@ package dev.aplseed.mythos.acc;
 
 import java.util.Map;
 
-/** Market data the calculator prices with. All maps are read-only snapshots. */
-public record Prices(Map<String, Double> lbin, Map<String, Double> bazaar, Map<String, Recipe> recipes) {
+/**
+ * Market data the calculator prices with. All maps are read-only snapshots.
+ * `bins`: accessory id -> cheapest buy-it-now auction open right now, from Hypixel's own
+ * auction list. `lbin`: a third-party lowest-BIN list, used for crafting ingredients only -
+ * it also carries prices of items nobody is selling any more.
+ */
+public record Prices(Map<String, Double> lbin, Map<String, Double> bazaar, Map<String, Recipe> recipes, Map<String, Double> bins) {
+	/** For tests: every listed price is an open BIN. */
+	public Prices(Map<String, Double> lbin, Map<String, Double> bazaar, Map<String, Recipe> recipes) {
+		this(lbin, bazaar, recipes, lbin);
+	}
+
 	public static final String RECOMB = "RECOMBOBULATOR_3000";
 
 	/**
@@ -79,7 +89,13 @@ public record Prices(Map<String, Double> lbin, Map<String, Double> bazaar, Map<S
 		return new Prices(Map.of(), Map.of(), Map.of());
 	}
 
-	/** Lowest BIN, or NaN when none is listed. */
+	/** The cheapest open buy-it-now auction for an accessory, or NaN when there is none. */
+	public double bin(String id) {
+		Double v = bins.get(id);
+		return v == null || v <= 0 ? Double.NaN : v;
+	}
+
+	/** Lowest BIN from the price list (ingredients), or NaN when none is listed. */
 	public double ah(String id) {
 		Double v = lbin.get(id);
 		return v == null || v <= 0 ? Double.NaN : v;

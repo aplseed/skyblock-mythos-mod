@@ -346,6 +346,11 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 			if (cat.byId.size() < 300 || p.lbin().size() < 1000 || p.bazaar().size() < 500 || Double.isNaN(p.recomb())) {
 				failures.add("live: data looks short - " + cat.byId.size() + " accessories, " + p.lbin().size() + " BINs, " + p.bazaar().size() + " bazaar");
 			}
+			// accessories are priced from Hypixel's open BIN auctions, not from the price list
+			long stale = cat.byId.keySet().stream().filter(id -> !Double.isNaN(p.ah(id)) && Double.isNaN(p.bin(id))).count();
+			Mythos.LOG.info("[gametest] live: {} accessories have an open BIN; the price list names {} more that have none (Runebook: list {}, open BIN {})",
+					p.bins().size(), stale, p.ah("RUNEBOOK"), p.bin("RUNEBOOK"));
+			if (p.bins().size() < 100) failures.add("live: only " + p.bins().size() + " accessories with an open BIN");
 			long withRecipe = p.recipes().values().stream().filter(r -> !r.parts().isEmpty()).count();
 			if (withRecipe < 50) failures.add("live: only " + withRecipe + " recipes loaded");
 			openBag(mc, "Accessory Bag", List.of(accessory("FEATHER_TALISMAN", "Feather Talisman", "COMMON", false)), 30);
