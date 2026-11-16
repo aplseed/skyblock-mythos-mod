@@ -31,23 +31,30 @@ public final class AccData {
 	static final String NEU = "https://raw.githubusercontent.com/NotEnoughUpdates/NotEnoughUpdates-REPO/master/";
 	/**
 	 * Lowest-BIN lists, all {"ITEM_ID": price}; tried in order, the one that answers is used from
-	 * then on. Only lists of real buy-it-now listings belong here: an accessory is only ever
-	 * "bought" at a price someone is offering right now. (Coflnet's NEU endpoint is not one -
-	 * it returns estimated prices, also for items with no BIN up.)
+	 * then on. These price crafting ingredients only. They can't say whether something is for
+	 * sale now (they keep the last price of items no longer listed), so accessories themselves
+	 * are priced from Hypixel's active auctions - see {@link Auctions}.
 	 */
 	static final String[] LBIN_URLS = {
 		"https://moulberry.codes/lowestbin.json",
 		"https://hysky.de/api/auctions/lowestbins",
 	};
 
+	static final String AUCTIONS_URL = "https://api.hypixel.net/v2/skyblock/auctions?page=";
 	private static final long CATALOG_TTL = 24 * 3_600_000L, PRICE_TTL = 5 * 60_000L, RECIPE_TTL = 7 * 24 * 3_600_000L;
+	/** the auction list is ~40 requests of a megabyte each: refreshed less often, and only while the calculator is in use */
+	private static final long BIN_TTL = 10 * 60_000L;
 	private static final long RETRY = 30_000;
 	private static final int PARALLEL = 6;
 
 	private static volatile Catalog catalog;
 	private static volatile Prices prices = Prices.empty();
 	private static final Map<String, Prices.Recipe> recipes = new ConcurrentHashMap<>();
-	private static long catalogAt, pricesAt, catalogTry, pricesTry;
+	private static long catalogAt, pricesAt, catalogTry, pricesTry, binsAt, binsTry;
+	private static boolean binsBusy;
+	private static int binPagesLeft, binScan;
+	private static String binError;
+	private static Map<String, Double> lbinNow = Map.of(), bazaarNow = Map.of(), binsNow = Map.of();
 	private static boolean catalogBusy, pricesBusy, recipesBusy, recipesLoaded;
 	private static int recipesLeft;
 	private static int lbinSource;
@@ -74,7 +81,7 @@ public final class AccData {
 	}
 
 	public static boolean priced() {
-		return pricesAt > 0;
+		return pricesAt > 0 && binsAt > 0;
 	}
 
 	public static long pricesAge() {
@@ -85,6 +92,11 @@ public final class AccData {
 	public static String status() {
 		if (catalog == null) return catalogError != null ? "Accessory list failed: " + catalogError + " (retrying)" : "Loading accessory list...";
 		if (pricesAt == 0) return priceError != null ? "Prices failed: " + priceError + " (retrying)" : "Loading prices...";
+		if (binsAt == 0) {
+			return binError != null ? "Auction list failed: " + binError + " (retrying)"
+					: "Reading active auctions" + (binPagesLeft > 0 ? " (" + binPagesLeft + " pages left)..." : "...");
+		}
+		if (binError != null) return "Auctions are " + ((System.currentTimeMillis() - binsAt) / 60_000) + " min old: " + binError;
 		if (recipesBusy) return "Loading recipes (" + recipesLeft + " left)...";
 		return priceError != null ? "Prices are " + (pricesAge() / 60_000) + " min old: " + priceError : null;
 	}
@@ -108,7 +120,71 @@ public final class AccData {
 			pricesTry = now;
 			loadPrices();
 		}
+		if (!binsBusy && (now - binsAt > BIN_TTL || force) && (force || now - binsTry > RETRY)) {
+			binsTry = now;
+			loadBins();
+		}
 		if (catalog != null && pricesAt > 0 && !recipesBusy && !recipesLoaded) loadRecipes();
+	}
+
+	// ---- open buy-it-now auctions ----
+
+	private static void loadBins() {
+		binsBusy = true;
+		binPagesLeft = 0;
+		int scan = ++binScan;
+		long now = System.currentTimeMillis();
+		Map<String, Double> lowest = new ConcurrentHashMap<>();
+		Http.stream(AUCTIONS_URL + 0, body -> Auctions.page(body, now, lowest)).whenComplete((pages, err) -> {
+			if (err != null || pages <= 1) {
+				binsDone(scan, lowest, err);
+				return;
+			}
+			onClient(() -> binPagesLeft = pages - 1);
+			Deque<Integer> todo = new ArrayDeque<>();
+			for (int p = 1; p < pages; p++) todo.add(p);
+			int[] left = {pages - 1};
+			Throwable[] failed = {null};
+			Runnable[] next = new Runnable[1];
+			next[0] = () -> {
+				Integer page;
+				synchronized (todo) {
+					page = failed[0] != null ? null : todo.poll();
+				}
+				if (page == null) return;
+				Http.stream(AUCTIONS_URL + page, body -> Auctions.page(body, now, lowest)).whenComplete((x, e) -> {
+					boolean last;
+					synchronized (todo) {
+						// a page past the end means the list shrank while we read it; anything else fails the scan
+						if (e != null && !"HTTP 404".equals(Http.reason(e)) && failed[0] == null) failed[0] = e;
+						last = --left[0] == 0 || failed[0] != null;
+						if (failed[0] != null) left[0] = -1;
+					}
+					onClient(() -> binPagesLeft = Math.max(0, binPagesLeft - 1));
+					if (last) binsDone(scan, lowest, failed[0]);
+					else next[0].run();
+				});
+			};
+			for (int i = 0; i < 4; i++) next[0].run();
+		});
+	}
+
+	private static void binsDone(int scan, Map<String, Double> lowest, Throwable err) {
+		onClient(() -> {
+			if (!binsBusy || scan != binScan) return;     // a failed scan reports once, and not into a newer one
+			binsBusy = false;
+			binPagesLeft = 0;
+			if (err != null) {
+				binError = Http.reason(err);
+				Mythos.LOG.warn("Auction list: {}", err.toString());
+				return;
+			}
+			binsNow = Map.copyOf(lowest);
+			binsAt = System.currentTimeMillis();
+			binError = null;
+			prices = new Prices(lbinNow, bazaarNow, recipes, binsNow);
+			version++;
+		});
 	}
 
 	// ---- accessory list ----
@@ -206,7 +282,9 @@ public final class AccData {
 				return;
 			}
 			@SuppressWarnings("unchecked") Map<String, Double> b = maps[0], l = maps[1];
-			prices = new Prices(Map.copyOf(l), Map.copyOf(b), recipes);
+			lbinNow = Map.copyOf(l);
+			bazaarNow = Map.copyOf(b);
+			prices = new Prices(lbinNow, bazaarNow, recipes, binsNow);
 			pricesAt = System.currentTimeMillis();
 			priceError = null;
 			version++;
@@ -381,7 +459,7 @@ public final class AccData {
 	public static void set(Catalog c, Prices p) {
 		catalog = c;
 		prices = p;
-		catalogAt = pricesAt = System.currentTimeMillis();
+		catalogAt = pricesAt = binsAt = System.currentTimeMillis();
 		recipesLoaded = true;
 		version++;
 	}
