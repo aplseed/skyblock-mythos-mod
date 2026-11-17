@@ -65,7 +65,7 @@ class AccessoryCalculatorTest {
 	}
 
 	static Player player(int free, int jacobus, Map<String, Integer> unlocks) {
-		return new Player(unlocks, free, jacobus, false, true, COLLECTIONS);
+		return new Player(unlocks, free, jacobus, true, COLLECTIONS);
 	}
 
 	static Option option(Analysis a, String id, boolean recomb) {
@@ -99,6 +99,11 @@ class AccessoryCalculatorTest {
 		assertNull(Rarity.fromLore(List.of("Rare drop from wolves", "Click to view!")));
 		assertEquals(Rarity.EPIC, Rarity.LEGENDARY.up() == Rarity.MYTHIC ? Rarity.RARE.up() : null);
 		assertNull(Rarity.VERY_SPECIAL.up());
+		// SkyBlock 0.27.3: DIVINE is worth 28, SPECIAL and VERY SPECIAL nothing
+		assertEquals(28, Rarity.DIVINE.mp);
+		assertEquals(6, Rarity.MYTHIC.up().mp - Rarity.MYTHIC.mp);
+		assertEquals(0, Rarity.SPECIAL.mp);
+		assertEquals(0, Rarity.VERY_SPECIAL.mp);
 	}
 
 	@Test
@@ -110,14 +115,25 @@ class AccessoryCalculatorTest {
 				bag("PARTY_HAT_CRAB", Rarity.SPECIAL, false, 5), bag("PARTY_HAT_SLOTH", Rarity.SPECIAL, false, 6),
 				bag("SOMETHING_NEW", Rarity.RARE, false, 7));
 		Analysis a = Analysis.of(CAT, PRICES, owned, player(0, -1, Map.of()));
-		// 3 feather + 12 recombobulated wolf ring + 2x16 hegemony + 3 hat + 8 unknown
-		assertEquals(3 + 12 + 32 + 3 + 8, a.magicPower);
+		// 3 feather + 12 recombobulated wolf ring + 2x16 hegemony + 0 hat (SPECIAL gives none since 0.27.3) + 8 unknown
+		assertEquals(3 + 12 + 32 + 0 + 8, a.magicPower);
 		assertEquals(5, a.counted.size());
 		assertEquals(3, a.dupes.size());
 		assertTrue(a.dupes.stream().anyMatch(d -> d.item().id().equals("FEATHER_TALISMAN") && d.sameItem()));
 		assertTrue(a.dupes.stream().anyMatch(d -> d.item().id().equals("WOLF_TALISMAN") && d.kept().id().equals("WOLF_RING") && !d.sameItem()));
 		assertTrue(a.dupes.stream().anyMatch(d -> d.item().id().startsWith("PARTY_HAT")));
-		assertEquals(11 + a.magicPower, Analysis.of(CAT, PRICES, owned, new Player(Map.of(), 0, -1, true, true, COLLECTIONS)).magicPower);
+		assertEquals(3, a.bagDupes(), "a scan from before 0.27.3 can hold a line twice");
+
+		// 0.27.3: one slot per line, so the spares are in the inventory and take no slot
+		List<Owned> spares = List.of(bag("FEATHER_TALISMAN", Rarity.COMMON, false, 0), bag("WOLF_RING", Rarity.RARE, false, 1),
+				new Owned("FEATHER_TALISMAN", "Feather Talisman", Rarity.COMMON, false, 0, 9, false),
+				new Owned("WOLF_TALISMAN", "Wolf Talisman", Rarity.UNCOMMON, false, 0, 10, false),
+				new Owned("SPEED_TALISMAN", "Speed Talisman", Rarity.COMMON, false, 0, 11, false));
+		Analysis now = Analysis.of(CAT, PRICES, spares, player(0, -1, Map.of()));
+		assertEquals(2, now.dupes.size());
+		assertEquals(0, now.bagDupes());
+		assertTrue(now.dupes.stream().allMatch(d -> !d.item().inBag()));
+		assertTrue(now.dupes.stream().anyMatch(d -> d.item().id().equals("WOLF_TALISMAN") && d.kept().id().equals("WOLF_RING")));
 	}
 
 	@Test
@@ -164,7 +180,7 @@ class AccessoryCalculatorTest {
 		assertEquals(400_000, option(unlocked, "RED_CLAW_ARTIFACT", false).cost(), 1e-6);
 		assertEquals("craft", option(unlocked, "RED_CLAW_ARTIFACT", false).how());
 		// with crafting off, everything is priced at the auction
-		Analysis buying = Analysis.of(CAT, PRICES, owned, new Player(Map.of("slayer_wolf", 5), 1, -1, false, false, COLLECTIONS));
+		Analysis buying = Analysis.of(CAT, PRICES, owned, new Player(Map.of("slayer_wolf", 5), 1, -1, false, COLLECTIONS));
 		assertEquals(2_000_000, option(buying, "RED_CLAW_ARTIFACT", false).cost(), 1e-6);
 		assertEquals(400_000, option(buying, "FEATHER_ARTIFACT", false).cost(), 1e-6);
 		assertEquals("lowest BIN", option(buying, "FEATHER_ARTIFACT", false).how());
@@ -202,14 +218,14 @@ class AccessoryCalculatorTest {
 		assertEquals(1, mid.slotsUsed());
 		assertTrue(mid.limitedBySlots());
 
-		// same coins, Jacobus known (3 bought, next costs 5M): slots are still too dear
+		// same coins, Jacobus known (3 bought, the 4th costs 1M): slots are still too dear
 		Player jac = player(0, 3, unlocks);
 		assertEquals(17, Planner.plan(Analysis.of(CAT, PRICES, owned, jac), jac, 500_000, () -> false).gain());
 
-		// 40M: one 5M upgrade (+2 slots) is worth it for the 30M relic and the rest
+		// 40M: one 1M upgrade (+2 slots) is worth it for the 30M relic and the rest
 		Planner.Plan big = Planner.plan(Analysis.of(CAT, PRICES, owned, jac), jac, 40_000_000, () -> false);
 		assertEquals(1, big.jacobusUpgrades());
-		assertEquals(5_000_000, big.slotCost(), 1e-6);
+		assertEquals(1_000_000, big.slotCost(), 1e-6);     // the 4th upgrade
 		assertTrue(big.total() <= 40_000_000);
 		assertTrue(big.picks().stream().anyMatch(o -> o.id().equals("TITANIUM_RELIC")));
 		Set<String> lines = new HashSet<>();
@@ -224,7 +240,7 @@ class AccessoryCalculatorTest {
 		List<Owned> owned = List.of(bag("FEATHER_TALISMAN", Rarity.COMMON, false, 0));
 		// Feather VIII: the ring's recipe (VII) is open, the artifact's (IX) isn't, so the
 		// artifact is bought at its 400k BIN
-		Analysis eight = Analysis.of(CAT, PRICES, owned, new Player(Map.of(), 1, -1, false, true, Map.of("feather", 8)));
+		Analysis eight = Analysis.of(CAT, PRICES, owned, new Player(Map.of(), 1, -1, true, Map.of("feather", 8)));
 		assertEquals("craft from your Feather Talisman", option(eight, "FEATHER_RING", false).how());
 		assertEquals(14_000, option(eight, "FEATHER_RING", false).cost(), 1e-6);
 		assertEquals("lowest BIN", option(eight, "FEATHER_ARTIFACT", false).how());
@@ -233,7 +249,7 @@ class AccessoryCalculatorTest {
 		assertTrue(eight.unknownCollections.isEmpty());
 
 		// never seen: no craft at all, and the analysis says which collections to show
-		Analysis unseen = Analysis.of(CAT, PRICES, owned, new Player(Map.of(), 1, -1, false, true, Map.of()));
+		Analysis unseen = Analysis.of(CAT, PRICES, owned, new Player(Map.of(), 1, -1, true, Map.of()));
 		assertEquals(50_000, option(unseen, "FEATHER_RING", false).cost(), 1e-6);
 		assertEquals("lowest BIN", option(unseen, "FEATHER_RING", false).how());
 		assertEquals(Set.of("Feather VII", "Feather IX"), unseen.unknownCollections);
@@ -290,11 +306,14 @@ class AccessoryCalculatorTest {
 
 	@Test
 	void jacobusPrices() {
-		assertEquals(1_500_000, Planner.jacobusCost(0, 1), 0);
-		assertEquals(21_500_000, Planner.jacobusCost(0, 5), 0);
-		assertEquals(61_500_000, Planner.jacobusCost(0, 10), 0);
-		assertEquals(181_500_000, Planner.jacobusCost(0, 20), 0);
-		assertEquals(1_761_500_000, Planner.jacobusCost(0, 99), 0);
+		// SkyBlock 0.27.3's prices: the 5th upgrade (the Jacobus Register) at 3.35M in total
+		assertEquals(100_000, Planner.jacobusCost(0, 1), 0);
+		assertEquals(3_350_000, Planner.jacobusCost(0, 5), 0);
+		assertEquals(18_350_000, Planner.jacobusCost(0, 10), 0);
+		assertEquals(9_500_000, Planner.jacobusPrice(21), 0);
+		assertEquals(10_000_000, Planner.jacobusPrice(22), 0);
+		assertEquals(95_350_000, Planner.jacobusCost(0, 21), 0);
+		assertEquals(875_350_000, Planner.jacobusCost(0, 99), 0);
 		assertEquals(Double.POSITIVE_INFINITY, Planner.jacobusCost(98, 2), 0);
 		assertEquals(Double.POSITIVE_INFINITY, Planner.jacobusCost(-1, 1), 0);
 	}

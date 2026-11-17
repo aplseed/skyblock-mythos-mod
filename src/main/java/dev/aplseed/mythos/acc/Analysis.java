@@ -21,22 +21,26 @@ public final class Analysis {
 	/**
 	 * `unlocks`: requirement key -> the player's level (missing = not told, treated as locked).
 	 * `jacobusBought`: bag slot upgrades already bought from Jacobus (0-99), or -1 if unknown.
+	 * `freeSlots`: bag slots not holding an accessory yet; a new accessory line takes one.
 	 * `craft`: price accessories by their recipe when that's cheaper than buying them.
 	 * `collections`: collection name (lower case) -> tier reached; a missing one was never seen,
 	 * and recipes it unlocks are not crafted.
 	 */
-	public record Player(Map<String, Integer> unlocks, int freeSlots, int jacobusBought, boolean riftPrism, boolean craft,
+	public record Player(Map<String, Integer> unlocks, int freeSlots, int jacobusBought, boolean craft,
 			Map<String, Integer> collections) {}
 
 	public record Counted(Owned item, int mp) {}
 
-	/** An item in the bag that adds nothing because `kept` already counts for its line. */
+	/**
+	 * An accessory that adds nothing because `kept` already counts for its line: in the bag (a
+	 * scan from before 0.27.3, when a line could be stored twice), or a spare in the inventory.
+	 */
 	public record Dupe(Owned item, Owned kept, boolean sameItem) {}
 
 	public enum Kind { RECOMB, UPGRADE, NEW, INVENTORY }
 
 	/**
-	 * One purchasable step. `gain` is Magical Power over what the line gives now; `slots` is 1
+	 * One purchasable step. `gain` is Accessory Power over what the line gives now; `slots` is 1
 	 * for a line the bag doesn't hold yet. `recomb`: the cost includes a Recombobulator 3000.
 	 */
 	public record Option(String family, Kind kind, String id, String name, Rarity result, boolean recomb,
@@ -52,8 +56,6 @@ public final class Analysis {
 			return Double.isNaN(price) || gain <= 0 ? Double.POSITIVE_INFINITY : price / gain;
 		}
 	}
-
-	public static final int RIFT_PRISM_MP = 11;
 
 	public int magicPower;
 	public final List<Counted> counted = new ArrayList<>();
@@ -167,7 +169,11 @@ public final class Analysis {
 			a.magicPower += mp(top);
 			for (Owned o : e.getValue()) if (o != top) a.dupes.add(new Dupe(o, top, o.id().equals(top.id())));
 		}
-		if (player.riftPrism()) a.magicPower += RIFT_PRISM_MP;
+		// spares in the inventory: the bag already holds that line at least as well
+		for (Owned o : a.inventory) {
+			Owned top = best.get(cat.familyOf(o.id()));
+			if (top != null && mp(o) <= mp(top)) a.dupes.add(new Dupe(o, top, o.id().equals(top.id())));
+		}
 		a.counted.sort(Comparator.comparingInt((Counted c) -> -c.mp).thenComparing(c -> c.item.name()));
 
 		Set<String> families = new HashSet<>(cat.families.keySet());
@@ -179,6 +185,13 @@ public final class Analysis {
 
 		a.missing.sort(Comparator.comparingDouble(Missing::perMp).thenComparing(m -> m.acc.name()));
 		return a;
+	}
+
+	/** Dupes taking up bag slots (only possible in a scan from before 0.27.3). */
+	public int bagDupes() {
+		int n = 0;
+		for (Dupe d : dupes) if (d.item().inBag()) n++;
+		return n;
 	}
 
 	private static int mp(Owned o) {
@@ -254,7 +267,7 @@ public final class Analysis {
 		if (!kept.isEmpty()) groups.add(kept);
 	}
 
-	/** Usable and priced beats locked or unpriced; then cheaper per Magical Power. */
+	/** Usable and priced beats locked or unpriced; then cheaper per Accessory Power. */
 	private static boolean better(Missing m, Missing than) {
 		if (than == null) return true;
 		boolean a = m.locked == null && !Double.isNaN(m.price), b = than.locked == null && !Double.isNaN(than.price);

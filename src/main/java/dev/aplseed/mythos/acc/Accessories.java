@@ -33,13 +33,13 @@ public final class Accessories {
 
 	public static Analysis.Player player() {
 		Config c = Mythos.config();
-		return new Analysis.Player(c.unlocks, Bag.freeSlots(), c.jacobusUpgrades, c.riftPrism, c.accCraft, c.collections);
+		return new Analysis.Player(c.unlocks, Bag.freeSlots(), c.jacobusUpgrades, c.accCraft, c.collections);
 	}
 
 	/** Everything the analysis depends on, folded into one number. */
 	private static long key() {
 		Config c = Mythos.config();
-		return Objects.hash(AccData.version(), Bag.version(), c.unlocks, c.jacobusUpgrades, c.riftPrism, c.accFreeSlots, c.accCraft, c.collections);
+		return Objects.hash(AccData.version(), Bag.version(), c.unlocks, c.jacobusUpgrades, c.accFreeSlots, c.accCraft, c.collections);
 	}
 
 	/** The scanned bag analysed with current prices, or null until the accessory list has loaded. */
@@ -116,9 +116,9 @@ public final class Accessories {
 			out.add("Nothing to buy for " + Fmt.coins(plan.budget()) + (a.groups.isEmpty() ? " - no priced accessory would add power" : ""));
 			return out;
 		}
-		out.add("§6" + Fmt.coins(plan.budget()) + " budget§r: §d+" + plan.gain() + " Magical Power§r (" + a.magicPower + " -> "
-				+ (a.magicPower + plan.gain()) + ") for " + Fmt.coins(plan.total()) + ", " + Fmt.coins(plan.total() / plan.gain()) + " per MP");
-		if (plan.dupesToRemove() > 0) out.add("§e Take " + plan.dupesToRemove() + " dupe" + (plan.dupesToRemove() == 1 ? "" : "s") + " out of the bag first");
+		out.add("§6" + Fmt.coins(plan.budget()) + " budget§r: §d+" + plan.gain() + " Accessory Power§r (" + a.magicPower + " -> "
+				+ (a.magicPower + plan.gain()) + ") for " + Fmt.coins(plan.total()) + ", " + Fmt.coins(plan.total() / plan.gain()) + " per AP");
+		if (plan.dupesToRemove() > 0) out.add("§e Take " + plan.dupesToRemove() + " duplicate" + (plan.dupesToRemove() == 1 ? "" : "s") + " out of the bag first");
 		if (plan.jacobusUpgrades() > 0) {
 			out.add("§e Buy " + plan.jacobusUpgrades() + " bag upgrade" + (plan.jacobusUpgrades() == 1 ? "" : "s") + " from Jacobus: "
 					+ Fmt.coins(plan.slotCost()) + " (+" + plan.jacobusUpgrades() * Planner.SLOTS_PER_UPGRADE + " slots)");
@@ -129,7 +129,7 @@ public final class Accessories {
 				out.add("§7 +" + (plan.picks().size() - max) + " more - /myth acc shows them all");
 				break;
 			}
-			out.add(" " + n + ". " + describe(o) + " §7- " + (o.cost() == 0 ? "free" : Fmt.coins(o.cost())) + ", §d+" + o.gain() + " MP§7 (" + o.how() + ")");
+			out.add(" " + n + ". " + describe(o) + " §7- " + (o.cost() == 0 ? "free" : Fmt.coins(o.cost())) + ", §d+" + o.gain() + " AP§7 (" + o.how() + ")");
 		}
 		if (plan.limitedBySlots()) out.add("§e The bag is full - more slots would let this budget do more");
 		return out;

@@ -3,7 +3,7 @@
 	"id": "mythos",
 	"version": "${version}",
 	"name": "Mythos",
-	"description": "Hypixel SkyBlock decisions in game: an accessory calculator that plans your Magical Power budget, and - backed by a skyblock-mythos server - fusion plans, absorb costs, forge ranking, market signals and mayor effects where you need them.",
+	"description": "Hypixel SkyBlock decisions in game: an accessory calculator that plans your Accessory Power budget, and - backed by a skyblock-mythos server - fusion plans, absorb costs, forge ranking, market signals and mayor effects where you need them.",
 	"authors": ["aplseed"],
 	"license": "MIT",
 	"environment": "client",

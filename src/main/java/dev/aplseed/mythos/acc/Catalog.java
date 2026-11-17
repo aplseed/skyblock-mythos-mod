@@ -29,7 +29,7 @@ public final class Catalog {
 
 	public record Acc(String id, String name, Rarity tier, List<Req> reqs, boolean canRecomb, boolean soulbound,
 			boolean obtainable, String family, int rank) {
-		/** Magical Power at `rarity` (the Hegemony Artifact counts twice). */
+		/** Accessory Power at `rarity` (the Hegemony Artifact counts twice). */
 		public int mp(Rarity rarity) {
 			return mult(id) * rarity.mp;
 		}

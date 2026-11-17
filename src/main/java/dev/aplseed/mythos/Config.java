@@ -43,7 +43,6 @@ public final class Config {
 	public Map<String, Integer> unlocks = new TreeMap<>();
 	/** accessory bag upgrades bought from Jacobus (0-99); -1 = unknown, so no slots get planned */
 	public int jacobusUpgrades = -1;
-	public boolean riftPrism = false;
 	/** free bag slots, when the scan counts them wrongly; -1 = count them */
 	public int accFreeSlots = -1;
 	public String accBudget = "";

@@ -2,7 +2,11 @@ package dev.aplseed.mythos.acc;
 
 import java.util.Locale;
 
-/** Accessory rarities with the Magical Power each one gives. */
+/**
+ * Accessory rarities with the Accessory Power (formerly Magical Power) each one gives.
+ * Since SkyBlock 0.27.3, SPECIAL accessories give none, and recombobulators can be reclaimed
+ * from SPECIAL and VERY SPECIAL ones - so neither tier counts.
+ */
 public enum Rarity {
 	// the game's rarity colours, lifted where needed to read on the dark panels
 	COMMON(3, 0xFFECE8F5, "Common"),
@@ -11,9 +15,9 @@ public enum Rarity {
 	EPIC(12, 0xFFC873F0, "Epic"),
 	LEGENDARY(16, 0xFFFFB72E, "Legendary"),
 	MYTHIC(22, 0xFFFF7DF2, "Mythic"),
-	DIVINE(22, 0xFF6FE3F5, "Divine"),
-	SPECIAL(3, 0xFFFF6B7A, "Special"),
-	VERY_SPECIAL(5, 0xFFFF6B7A, "Very Special");
+	DIVINE(28, 0xFF6FE3F5, "Divine"),
+	SPECIAL(0, 0xFFFF6B7A, "Special"),
+	VERY_SPECIAL(0, 0xFFFF6B7A, "Very Special");
 
 	public final int mp;
 	public final int color;
