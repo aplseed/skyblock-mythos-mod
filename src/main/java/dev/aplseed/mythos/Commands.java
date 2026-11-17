@@ -245,12 +245,12 @@ final class Commands {
 		Analysis a = scan();
 		if (a == null) return 0;
 		if (a.dupes.isEmpty()) {
-			Mythos.chat("No dupes: all " + a.counted.size() + " accessories in the bag count");
+			Mythos.chat("No spares: nothing you carry duplicates the bag (" + a.counted.size() + " accessories in it)");
 			return 1;
 		}
-		Mythos.chat("§c" + a.dupes.size() + " dupe" + (a.dupes.size() == 1 ? "" : "s") + "§r wasting bag slots:");
+		Mythos.chat("§c" + a.dupes.size() + " spare" + (a.dupes.size() == 1 ? "" : "s") + "§r - the bag already counts their line:");
 		for (Analysis.Dupe d : a.dupes) {
-			Mythos.chat(" " + d.item().name() + " §7(page " + d.item().page() + ") - " + (d.sameItem() ? "you have it twice" : "lower tier of " + d.kept().name()));
+			Mythos.chat(" " + d.item().name() + " §7- " + (d.sameItem() ? "already in the bag" : "the bag has " + d.kept().name()) + (d.item().inBag() ? ", takes a slot" : ""));
 		}
 		return 1;
 	}
@@ -262,9 +262,9 @@ final class Commands {
 		for (Analysis.Missing m : a.missing) {
 			if (m.locked() != null || Double.isNaN(m.price())) continue;
 			buyable++;
-			if (shown++ < 10) Mythos.chat(" " + m.acc().name() + " §7- " + Fmt.coins(m.price()) + ", §d+" + m.gain() + " MP§7 (" + m.how() + ")");
+			if (shown++ < 10) Mythos.chat(" " + m.acc().name() + " §7- " + Fmt.coins(m.price()) + ", §d+" + m.gain() + " AP§7 (" + m.how() + ")");
 		}
-		Mythos.chat(a.magicPower + " Magical Power. " + buyable + " lines to buy" + (buyable > 10 ? " (cheapest per MP above)" : "") + ", " + a.locked
+		Mythos.chat(a.magicPower + " Accessory Power. " + buyable + " lines to buy" + (buyable > 10 ? " (cheapest per AP above)" : "") + ", " + a.locked
 				+ " locked, " + (a.missing.size() - buyable - a.locked) + " without a price - /myth acc lists them all");
 		return 1;
 	}

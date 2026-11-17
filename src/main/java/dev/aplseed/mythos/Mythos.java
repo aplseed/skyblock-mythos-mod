@@ -144,6 +144,7 @@ public final class Mythos implements ClientModInitializer {
 		mc.getConnection().sendCommand("recipe " + name);
 	}
 
+	private static int widgetTicks;
 	private static MythosScreen.Tab pendingScreen;
 	private static boolean screenRequested;
 
@@ -204,6 +205,8 @@ public final class Mythos implements ClientModInitializer {
 				mc.gui.setScreen(new MythosScreen(pendingScreen));
 			}
 			Commands.tick();
+			// the Accessory Bag tab widget keeps the bag's slot count current between bag visits
+			if (++widgetTicks % 100 == 0 && config.accessories && active()) dev.aplseed.mythos.acc.Bag.readCounts(dev.aplseed.mythos.util.TabList.lines());
 			SellWarnings.tick();
 			ShardTracker.tick();
 		});

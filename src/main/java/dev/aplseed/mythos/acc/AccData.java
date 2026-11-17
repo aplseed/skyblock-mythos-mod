@@ -101,6 +101,7 @@ public final class AccData {
 		return priceError != null ? "Prices are " + (pricesAge() / 60_000) + " min old: " + priceError : null;
 	}
 
+	/** Cache files; the accessory list's name changed with SkyBlock 0.27.3 so pre-update copies are refetched. */
 	private static Path cache(String name) {
 		return Mythos.configDir().resolve("cache").resolve(name);
 	}
@@ -191,7 +192,7 @@ public final class AccData {
 
 	private static void loadCatalog(boolean force) {
 		catalogBusy = true;
-		Path file = cache("accessories.json");
+		Path file = cache("accessory-list.json");
 		if (catalog == null) {
 			try {
 				if (Files.exists(file)) {

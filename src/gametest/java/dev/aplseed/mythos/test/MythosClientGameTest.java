@@ -206,13 +206,23 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 		return s;
 	}
 
-	/** A 6-row bag page: the given stacks from slot 0, panes over the rest of row 5, navigation in row 6. */
-	private static void openBag(Minecraft mc, String title, List<ItemStack> items, int locked) {
+	/** A slot of the 0.27.3 bag for an accessory you don't have: no SkyBlock id, the accessory's name. */
+	private static ItemStack missing(String name) {
+		return named(Items.CLAY_BALL, name, 1, "You don't have this accessory!", "", "Click to view how to obtain it!");
+	}
+
+	/**
+	 * A 6-row page of the 0.27.3 bag: one slot per accessory line from slot 0, then the
+	 * bottom row with sorting, search, close and an info item showing `info` (slot use).
+	 */
+	private static void openBag(Minecraft mc, String title, List<ItemStack> items, String info) {
 		SimpleContainer box = new SimpleContainer(54);
 		for (int i = 0; i < items.size(); i++) box.setItem(i, items.get(i));
-		for (int i = 0; i < locked; i++) box.setItem(44 - i, named(Items.IRON_BARS, "Locked", 1));
 		for (int i = 45; i < 54; i++) box.setItem(i, named(Items.GLASS_PANE, " ", 1));
+		box.setItem(45, item("Sort", "Game Stage", "Alphabetical", "Missing First"));
+		box.setItem(48, item("Search"));
 		box.setItem(49, item("Close"));
+		box.setItem(50, item("Accessory Bag", "Your accessories grant their stats", "while stored here.", "", info));
 		ChestMenu menu = ChestMenu.sixRows(1000, mc.player.getInventory(), box);
 		mc.gui.setScreen(new ContainerScreen(menu, mc.player.getInventory(), Component.literal(title)));
 	}
@@ -232,7 +242,7 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 
 	/**
 	 * The accessory calculator on a hand-made item list (in Hypixel's and NEU's formats)
-	 * and a two-page bag: scan, dupes, free slots, then /myth budget.
+	 * and a two-page bag in the 0.27.3 layout: scan, spares, free slots, then /myth budget.
 	 */
 	private void accessories(ClientGameTestContext ctx) {
 		ctx.runOnClient(mc -> {
@@ -265,30 +275,34 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 			Mythos.config().unlocks.put("slayer_wolf", 7);
 			Mythos.config().jacobusUpgrades = 3;
 			Mythos.config().accFreeSlots = -1;
-			Mythos.config().riftPrism = false;
 			Mythos.config().accCraft = true;
 			Mythos.config().collections.clear();
-			// page 1 of 2, full: two feather talismans (a dupe), a wolf talisman under the recombobulated ring
+			// spares in the inventory: a second feather talisman, and a wolf talisman under the bag's ring
+			mc.player.getInventory().setItem(9, accessory("FEATHER_TALISMAN", "Feather Talisman", "COMMON", false));
+			mc.player.getInventory().setItem(10, accessory("WOLF_TALISMAN", "Wolf Talisman", "UNCOMMON", false));
+			// page 1 of 2: the feather talisman, the recombobulated wolf ring, two lines not in the bag
+			// (one slot without an id, one with an id but marked missing) and 41 more accessories
 			List<ItemStack> page1 = new ArrayList<>(List.of(
 					accessory("FEATHER_TALISMAN", "Feather Talisman", "COMMON", false),
-					accessory("FEATHER_TALISMAN", "Feather Talisman", "COMMON", false),
-					accessory("WOLF_TALISMAN", "Wolf Talisman", "UNCOMMON", false),
-					accessory("WOLF_RING", "Wolf Ring", "EPIC", true)));
+					accessory("WOLF_RING", "Wolf Ring", "EPIC", true),
+					missing("Speed Talisman"),
+					withId(missing("Scarf's Grimoire"), "SCARF_GRIMOIRE")));
 			for (int i = page1.size(); i < 45; i++) page1.add(accessory("FILLER_" + i, "Filler " + i, "COMMON", false));
-			openBag(mc, "Accessory Bag (1/2)", page1, 0);
+			openBag(mc, "Accessory Bag (1/2)", page1, "Slots: 44/60");
 		});
 		// 3 feather + 12 ring (epic once recombobulated) + 41 fillers x 3
 		List<String> p1 = panelAfter(ctx, "accessory-bag", 30);
-		expect("accessory bag page 1", p1, "Accessories  page 1/2", "Magical Power  138", "Counted  43 of 45 in the bag", "Free slots  0",
-				"Open page 2 to finish the scan", "Dupes  2 wasted slots", "Feather Talisman  twice", "Wolf Talisman  have Wolf Ring",
+		expect("accessory bag page 1", p1, "Accessories  page 1/2", "Accessory Power  138", "Accessories  43", "Free slots  16",
+				"Open page 2 to finish the scan", "Spares  2 not needed", "Feather Talisman  already in the bag", "Wolf Talisman  bag has Wolf Ring",
 				"Cheapest power", "Speed Talisman  5k  +3");
 		ctx.runOnClient(mc -> mc.gui.setScreen(null));
 		ctx.waitTicks(5);
 
-		// page 2: the hegemony artifact, 3 locked slots, the rest free
-		ctx.runOnClient(mc -> openBag(mc, "Accessory Bag (2/2)", List.of(accessory("HEGEMONY_ARTIFACT", "Hegemony Artifact", "LEGENDARY", false)), 3));
+		// page 2: the hegemony artifact (it counts twice) and the titanium relic's empty slot
+		ctx.runOnClient(mc -> openBag(mc, "Accessory Bag (2/2)", List.of(
+				accessory("HEGEMONY_ARTIFACT", "Hegemony Artifact", "LEGENDARY", false), missing("Titanium Relic")), "Slots: 44/60"));
 		List<String> p2 = panelAfter(ctx, "accessory-bag-2", 30);
-		expect("accessory bag page 2", p2, "Magical Power  170", "Free slots  41");
+		expect("accessory bag page 2", p2, "Accessory Power  170", "Free slots  16");
 		if (String.join("\n", p2).contains("finish the scan")) failures.add("accessory bag: still asks for a page after both were opened");
 		ctx.runOnClient(mc -> mc.gui.setScreen(null));
 		ctx.waitTicks(5);
@@ -296,7 +310,7 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 		// before the collection is seen, the feather upgrade is a 400k purchase, not a 78k craft
 		command(ctx, "myth budget 100k");
 		ctx.waitFor(mc -> chatContains(mc, "100k budget"), 200);
-		expect("/myth budget before collections", ctx.computeOnClient(mc -> Mythos.sentChat()), "+3 Magical Power", "2 recipes weren't considered");
+		expect("/myth budget before collections", ctx.computeOnClient(mc -> Mythos.sentChat()), "+3 Accessory Power", "2 recipes weren't considered");
 		// a collection menu as the game shows it: the tier is in the item's name
 		check(ctx, "collections", "Farming Collections", List.of(
 				item("Feather IX", "View all your Feather Collection", "progress and rewards!", "", "Progress to Feather X: 12.5%"),
@@ -313,14 +327,22 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 		ctx.waitFor(mc -> chatContains(mc, "budget"), 200);
 		List<String> chat = ctx.computeOnClient(mc -> Mythos.sentChat());
 		Mythos.LOG.info("[gametest] /myth budget 6m:\n    {}", String.join("\n    ", chat.subList(Math.max(0, chat.size() - 8), chat.size())));
-		expect("/myth budget", chat, "+32 Magical Power", "(170 -> 202)", "Craft Feather Artifact (replaces Feather Talisman)",
+		expect("/myth budget", chat, "+32 Accessory Power", "(170 -> 202)", "Craft Feather Artifact (replaces Feather Talisman)",
 				"Buy Red Claw Artifact", "Buy Scarf's Grimoire", "Buy Speed Talisman", "1 accessory lines are locked");
 
 		command(ctx, "myth acc dupes");
-		expect("/myth acc dupes", ctx.computeOnClient(mc -> Mythos.sentChat()), "2 dupes", "lower tier of Wolf Ring");
+		expect("/myth acc dupes", ctx.computeOnClient(mc -> Mythos.sentChat()), "2 spares", "the bag has Wolf Ring");
 		// a bad amount is refused, not planned
 		command(ctx, "myth budget lots");
 		expect("/myth budget lots", ctx.computeOnClient(mc -> Mythos.sentChat()), "That isn't an amount");
+		// the slot count also comes from the Accessory Bag tab widget's text
+		ctx.runOnClient(mc -> {
+			Bag.readCounts(List.of("Accessory Bag:", " Accessory Power: 170", " Accessory Bag Slots: 44/62"));
+			if (Bag.freeSlots() != 18 || Bag.gamePower() != 170) failures.add("tab widget: free " + Bag.freeSlots() + ", power " + Bag.gamePower());
+			Bag.readCounts(List.of("Slots: 44/60"));
+			mc.player.getInventory().setItem(9, ItemStack.EMPTY);
+			mc.player.getInventory().setItem(10, ItemStack.EMPTY);
+		});
 	}
 
 	/**
@@ -353,7 +375,7 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 			if (p.bins().size() < 100) failures.add("live: only " + p.bins().size() + " accessories with an open BIN");
 			long withRecipe = p.recipes().values().stream().filter(r -> !r.parts().isEmpty()).count();
 			if (withRecipe < 50) failures.add("live: only " + withRecipe + " recipes loaded");
-			openBag(mc, "Accessory Bag", List.of(accessory("FEATHER_TALISMAN", "Feather Talisman", "COMMON", false)), 30);
+			openBag(mc, "Accessory Bag", List.of(accessory("FEATHER_TALISMAN", "Feather Talisman", "COMMON", false)), "Slots: 1/18");
 		});
 		panelAfter(ctx, "live-bag", 30);
 		ctx.runOnClient(mc -> mc.gui.setScreen(null));
@@ -401,11 +423,11 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 		for (Case c : List.of(
 				new Case("overview", MythosScreen.Tab.OVERVIEW, null, new String[] {"Logged in as tester", "Features", "Fusion planner", "Accessory bag", "[Log out]"}),
 				new Case("settings", MythosScreen.Tab.SETTINGS, null, new String[] {"Forge slots", "Quick Forge level", "Pure Reptile level", "Only on Hypixel"}),
-				new Case("acc-summary", MythosScreen.Tab.ACCESSORIES, MythosScreen.Sub.SUMMARY, new String[] {"170 MP", "Accessories counted", "44 of 46", "Dupes", "Power by rarity", "Legendary"}),
+				new Case("acc-summary", MythosScreen.Tab.ACCESSORIES, MythosScreen.Sub.SUMMARY, new String[] {"170 AP", "Accessories", "44", "Spares", "16 of 60", "Power by rarity", "Legendary"}),
 				new Case("acc-missing", MythosScreen.Tab.ACCESSORIES, MythosScreen.Sub.MISSING, new String[] {"Speed Talisman", "Red Claw Artifact", "needs Heart of the Mountain 5 (yours: not set)", "soulbound: earn it"}),
-				new Case("acc-dupes", MythosScreen.Tab.ACCESSORIES, MythosScreen.Sub.DUPES, new String[] {"2 slots wasted", "you have it twice  -  page 1"}),
-				new Case("acc-budget", MythosScreen.Tab.ACCESSORIES, MythosScreen.Sub.BUDGET, new String[] {"+32 Magical Power", "170 -> 202", "4 purchases", "craft from your Feather Talisman", "[Send to chat]"}),
-				new Case("acc-unlocks", MythosScreen.Tab.ACCESSORIES, MythosScreen.Sub.UNLOCKS, new String[] {"Wolf Slayer", "Heart of the Mountain", "not set", "Jacobus upgrades", "3 of 99", "Next upgrade", "5M for +2 slots", "Collections for crafts", "Feather", "IX"}))) {
+				new Case("acc-dupes", MythosScreen.Tab.ACCESSORIES, MythosScreen.Sub.DUPES, new String[] {"2 not needed", "already in the bag", "the bag has Wolf Ring"}),
+				new Case("acc-budget", MythosScreen.Tab.ACCESSORIES, MythosScreen.Sub.BUDGET, new String[] {"+32 Accessory Power", "170 -> 202", "4 purchases", "craft from your Feather Talisman", "[Send to chat]"}),
+				new Case("acc-unlocks", MythosScreen.Tab.ACCESSORIES, MythosScreen.Sub.UNLOCKS, new String[] {"Wolf Slayer", "Heart of the Mountain", "not set", "Jacobus upgrades", "3 of 99", "Next upgrade", "1M for +2 slots", "Collections for crafts", "Feather", "IX"}))) {
 			ctx.runOnClient(mc -> {
 				if (c.sub != null) MythosScreen.show(c.sub);
 				mc.gui.setScreen(new MythosScreen(c.tab));

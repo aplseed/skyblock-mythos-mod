@@ -43,7 +43,7 @@ public final class MythosScreen extends Screen {
 	}
 
 	public enum Sub {
-		SUMMARY("Summary"), MISSING("Missing"), DUPES("Dupes"), BUDGET("Budget"), UNLOCKS("Unlocks");
+		SUMMARY("Summary"), MISSING("Missing"), DUPES("Spares"), BUDGET("Budget"), UNLOCKS("Unlocks");
 
 		final String label;
 
@@ -463,7 +463,7 @@ public final class MythosScreen extends Screen {
 			tx += tw + 2;
 		}
 		Analysis a = Accessories.analysis();
-		if (a != null && Bag.scanned()) putRight(Fmt.full(a.magicPower) + " MP", left + w - PAD, y + 5, Theme.PINK);
+		if (a != null && Bag.scanned()) putRight(Fmt.full(a.magicPower) + " AP", left + w - PAD, y + 5, Theme.PINK);
 		Theme.rule(g, left + 1, y + 17, w - 2);
 		return y + 18;
 	}
@@ -500,12 +500,13 @@ public final class MythosScreen extends Screen {
 		Config c = Mythos.config();
 
 		int ly = section("Your bag", "scanned " + ago(Bag.scannedAt()), x, y, colW);
-		ly = kv("Magical Power", Fmt.full(a.magicPower), Theme.PINK, x, ly, colW);
-		ly = kv("Accessories counted", a.counted.size() + " of " + Bag.size(), Theme.TEXT, x, ly, colW);
-		ly = kv("Dupes", Integer.toString(a.dupes.size()), a.dupes.isEmpty() ? Theme.GREEN : Theme.RED, x, ly, colW);
-		ly = kv("Free slots", Bag.freeSlots() + (c.accFreeSlots >= 0 ? " (set by you)" : ""), Theme.TEXT, x, ly, colW);
+		ly = kv("Accessory Power", Fmt.full(a.magicPower), Theme.PINK, x, ly, colW);
+		ly = kv("Accessories", Integer.toString(a.counted.size()), Theme.TEXT, x, ly, colW);
+		if (Bag.gamePower() >= 0 && Bag.gamePower() != a.magicPower) ly = kv("  the game says", Fmt.full(Bag.gamePower()), Theme.MUTED, x, ly, colW);
+		ly = kv("Spares", Integer.toString(a.dupes.size()), a.dupes.isEmpty() ? Theme.GREEN : Theme.RED, x, ly, colW);
+		ly = kv("Free slots", !Bag.slotsKnown() ? "unknown" : Bag.freeSlots() + (c.accFreeSlots >= 0 ? " (set by you)" : " of " + Bag.capacity()),
+				Bag.slotsKnown() ? Theme.TEXT : Theme.YELLOW, x, ly, colW);
 		ly = kv("Pages scanned", Bag.pagesSeen() + " of " + Bag.pages(), Bag.complete() ? Theme.TEXT : Theme.YELLOW, x, ly, colW);
-		if (c.riftPrism) ly = kv("Rift Prism", "+" + Analysis.RIFT_PRISM_MP, Theme.TEXT, x, ly, colW);
 		if (!a.inventory.isEmpty()) ly = kv("In your inventory", a.inventory.size() + " not in the bag", Theme.YELLOW, x, ly, colW);
 
 		ly = section("Still to get", null, x, ly + 6, colW);
@@ -518,7 +519,7 @@ public final class MythosScreen extends Screen {
 				cost += m.price();
 			}
 		}
-		ly = kv("Buyable lines", priced + "  (+" + gain + " MP, " + Fmt.coins(cost) + ")", Theme.GREEN, x, ly, colW);
+		ly = kv("Buyable lines", priced + "  (+" + gain + " AP, " + Fmt.coins(cost) + ")", Theme.GREEN, x, ly, colW);
 		ly = kv("Locked for you", Integer.toString(a.locked), a.locked > 0 ? Theme.YELLOW : Theme.TEXT, x, ly, colW);
 		ly = kv("No market price", Integer.toString(a.missing.size() - priced - a.locked), Theme.MUTED, x, ly, colW);
 		ly = kv("Can be recombobulated", a.recombable + "  (" + Fmt.coins(a.recombPrice) + " each)", Theme.TEXT, x, ly, colW);
@@ -529,6 +530,10 @@ public final class MythosScreen extends Screen {
 		if (c.accCraft && !a.unknownCollections.isEmpty()) {
 			ly = para("Open your Collections menus (each category) - " + a.unknownCollections.size() + " recipe"
 					+ (a.unknownCollections.size() == 1 ? "" : "s") + " can't be checked yet, so those accessories are priced as purchases.",
+					x, ly + 2, colW, Theme.YELLOW);
+		}
+		if (!Bag.slotsKnown()) {
+			ly = para("Mythos hasn't seen your bag's slot count. Turn on the Accessory Bag widget in the tab list (/tab), or set it in Unlocks.",
 					x, ly + 2, colW, Theme.YELLOW);
 		}
 		if (c.jacobusUpgrades < 0) ly = para("Set your Jacobus upgrades in Unlocks to let budgets buy more bag slots.", x, ly, colW, Theme.FAINT);
@@ -547,7 +552,7 @@ public final class MythosScreen extends Screen {
 			int[] v = by.get(r);
 			if (v == null) continue;
 			put(r.label, rx, ry, r.color);
-			putRight(v[0] + " x  " + v[1] + " MP", rx + colW, ry, Theme.TEXT);
+			putRight(v[0] + " x  " + v[1] + " AP", rx + colW, ry, Theme.TEXT);
 			Theme.bar(g, rx, ry + 10, colW, 2, v[1] / (double) most, r.color);
 			ry += 16;
 		}
@@ -558,7 +563,7 @@ public final class MythosScreen extends Screen {
 		return Math.max(ly, ry + 16);
 	}
 
-	/** Columns shared by the missing list and the plan: name | how | price | +MP. */
+	/** Columns shared by the missing list and the plan: name | how | price | +AP. */
 	private void itemRow(String name, int nameColor, String how, String price, String mp, int x, int y, int bw, String tip, Runnable click) {
 		boolean hover = over(x - 3, y - 1, bw + 6, ROW);
 		if (hover && click != null) g.fill(x - 3, y - 1, x + bw + 3, y - 1 + ROW, Theme.BG_HOVER);
@@ -588,7 +593,7 @@ public final class MythosScreen extends Screen {
 			String how = m.locked() != null ? m.locked() : buyable ? (m.upgrade() ? "upgrade, " : "") + m.how() : acc.soulbound() ? "soulbound: earn it" : "not sold";
 			boolean ah = buyable && !m.how().startsWith("craft"), craft = buyable && !ah;
 			itemRow(name, m.locked() != null ? Theme.FAINT : acc.tier().color, how, buyable ? Fmt.coins(m.price()) : "-", "+" + m.gain(), x, y, bw,
-					buyable ? name + ": " + m.how() + ", " + Fmt.coins(m.perMp()) + " per MP - click: " + (ah ? "/ahs " : "/recipe ") + name : name + ": " + how,
+					buyable ? name + ": " + m.how() + ", " + Fmt.coins(m.perMp()) + " per AP - click: " + (ah ? "/ahs " : "/recipe ") + name : name + ": " + how,
 					ah ? () -> Mythos.auctionSearch(name) : craft ? () -> Mythos.recipe(name) : null);
 			y += ROW;
 		}
@@ -597,16 +602,17 @@ public final class MythosScreen extends Screen {
 	}
 
 	private int dupes(Analysis a, int x, int y, int bw) {
-		y = section("Dupes", a.dupes.isEmpty() ? null : a.dupes.size() + " slot" + (a.dupes.size() == 1 ? "" : "s") + " wasted", x, y, bw);
-		if (a.dupes.isEmpty()) y = para("No dupes: every accessory in the bag counts.", x, y, bw, Theme.GREEN);
+		y = section("Spares", a.dupes.isEmpty() ? null : a.dupes.size() + " not needed", x, y, bw);
+		if (a.dupes.isEmpty()) y = para("No spares: nothing in your inventory duplicates the bag.", x, y, bw, Theme.GREEN);
 		for (Analysis.Dupe d : a.dupes) {
 			put(Theme.fit(font, d.item().name(), bw / 2), x, y, d.item().rarity().color);
-			putRight((d.sameItem() ? "you have it twice" : "lower tier of " + d.kept().name()) + "  -  page " + d.item().page(), x + bw, y, Theme.MUTED);
+			String why = d.sameItem() ? "already in the bag" : "the bag has " + d.kept().name();
+			putRight(d.item().inBag() ? why + " - takes a slot" : why, x + bw, y, Theme.MUTED);
 			y += ROW;
 		}
-		if (!a.dupes.isEmpty()) y = para("Only the best accessory of a line counts. Take these out to free their slots (or sell them).", x, y + 2, bw, Theme.FAINT);
+		if (!a.dupes.isEmpty()) y = para("The bag holds one accessory per line, and only that one counts. These spares can be sold.", x, y + 2, bw, Theme.FAINT);
 		if (!a.inventory.isEmpty()) {
-			y = section("In your inventory", "seen when the bag was last open", x, y + 6, bw);
+			y = section("Accessories in your inventory", "seen when the bag was last open", x, y + 6, bw);
 			for (Analysis.Owned o : a.inventory) {
 				put(o.name(), x, y, o.rarity().color);
 				y += ROW;
@@ -628,7 +634,7 @@ public final class MythosScreen extends Screen {
 		}
 		y += 20;
 		double coins = Fmt.parseCoins(budget.getValue());
-		if (budget.getValue().isBlank()) return para("Type what you want to spend (50m, 1.2b, 750k). The plan is the most Magical Power those coins can buy: new accessories, upgrades of the ones you have, recombobulators and - if it pays off - more bag slots.", x, y, bw, Theme.MUTED);
+		if (budget.getValue().isBlank()) return para("Type what you want to spend (50m, 1.2b, 750k). The plan is the most Accessory Power those coins can buy: new accessories, upgrades of the ones you have, recombobulators and - if it pays off - more bag slots.", x, y, bw, Theme.MUTED);
 		if (coins < 0) return para("That isn't an amount. Try 50m, 1.2b or 750000.", x, y, bw, Theme.RED);
 		if (!budget.getValue().trim().equals(Mythos.config().accBudget)) applyBudget(budget.getValue().trim());
 		Planner.Plan plan = Accessories.plan(coins);
@@ -636,18 +642,18 @@ public final class MythosScreen extends Screen {
 		if (!AccData.priced()) y = para("Prices haven't loaded, so nothing can be bought yet.", x, y, bw, Theme.YELLOW);
 
 		Theme.card(g, x, y, bw, 30, false);
-		put("+" + plan.gain() + " Magical Power", x + 6, y + 5, Theme.PINK);
+		put("+" + plan.gain() + " Accessory Power", x + 6, y + 5, Theme.PINK);
 		put(a.magicPower + " -> " + (a.magicPower + plan.gain()), x + 6, y + 16, Theme.MUTED);
 		putRight(Fmt.coins(plan.total()) + " of " + Fmt.coins(plan.budget()), x + bw - 6, y + 5, Theme.GOLD);
-		putRight(plan.gain() > 0 ? Fmt.coins(plan.total() / plan.gain()) + " per MP" : "nothing to buy", x + bw - 6, y + 16, Theme.MUTED);
+		putRight(plan.gain() > 0 ? Fmt.coins(plan.total() / plan.gain()) + " per AP" : "nothing to buy", x + bw - 6, y + 16, Theme.MUTED);
 		y += 36;
 		if (plan.picks().isEmpty()) return para(a.groups.isEmpty() ? "Nothing with a price would add power." : "Nothing fits this budget.", x, y, bw, Theme.MUTED);
 
 		y = section("Steps", plan.picks().size() + " purchases, best value first", x, y, bw);
 		int n = 0;
 		if (plan.dupesToRemove() > 0) {
-			itemRow(++n + ". Take " + plan.dupesToRemove() + " dupe" + (plan.dupesToRemove() == 1 ? "" : "s") + " out of the bag", Theme.YELLOW,
-					"frees slots", "free", "", x, y, bw, "See the Dupes tab", () -> go(Sub.DUPES));
+			itemRow(++n + ". Take " + plan.dupesToRemove() + " duplicate" + (plan.dupesToRemove() == 1 ? "" : "s") + " out of the bag", Theme.YELLOW,
+					"frees slots", "free", "", x, y, bw, "See the Spares tab", () -> go(Sub.DUPES));
 			y += ROW;
 		}
 		if (plan.jacobusUpgrades() > 0) {
@@ -665,7 +671,7 @@ public final class MythosScreen extends Screen {
 			boolean craft = Accessories.crafted(o);
 			String name = o.name();
 			itemRow(n + ". " + Accessories.describe(o), o.result().color, o.how(), o.cost() == 0 ? "free" : Fmt.coins(o.cost()), "+" + o.gain(), x, y, bw,
-					Accessories.describe(o) + ": " + o.how() + ", " + Fmt.coins(o.perMp()) + " per MP" + (ah ? " - click: /ahs " + name : craft ? " - click: /recipe " + name : ""),
+					Accessories.describe(o) + ": " + o.how() + ", " + Fmt.coins(o.perMp()) + " per AP" + (ah ? " - click: /ahs " + name : craft ? " - click: /recipe " + name : ""),
 					ah ? () -> Mythos.auctionSearch(name) : craft ? () -> Mythos.recipe(name) : null);
 			y += ROW;
 		}
@@ -747,13 +753,13 @@ public final class MythosScreen extends Screen {
 		if (c.jacobusUpgrades >= 0 && c.jacobusUpgrades < Planner.JACOBUS_MAX) {
 			ry = kv("Next upgrade", Fmt.coins(Planner.jacobusPrice(c.jacobusUpgrades + 1)) + " for +" + Planner.SLOTS_PER_UPGRADE + " slots", Theme.GOLD, rx, ry, colW);
 		}
-		ry = stepper("Free slots", c.accFreeSlots < 0 ? "auto: " + Bag.freeSlots() : Integer.toString(c.accFreeSlots), Theme.TEXT, rx, ry + 2, colW,
-				"Auto counts the empty slots seen in the bag. Set a number if that's wrong.",
+		ry = stepper("Free slots", c.accFreeSlots >= 0 ? Integer.toString(c.accFreeSlots) : Bag.slotsKnown() ? "auto: " + Bag.freeSlots() : "unknown",
+				c.accFreeSlots < 0 && !Bag.slotsKnown() ? Theme.YELLOW : Theme.TEXT, rx, ry + 2, colW,
+				"Auto reads \"Slots: used/total\" from the bag or its tab-list widget. Set a number if that's wrong.",
 				d -> set(() -> c.accFreeSlots = clamp(c.accFreeSlots + d, -1, 300)));
 
 		ry = section("Other", null, rx, ry + 6, colW);
 		ry = toggle("Craft when it's cheaper", "Off: plan with auction and bazaar prices only", c.accCraft, rx, ry, colW, () -> set(() -> c.accCraft = !c.accCraft));
-		ry = toggle("Rift Prism consumed", "+" + Analysis.RIFT_PRISM_MP + " Magical Power, not an item in the bag", c.riftPrism, rx, ry, colW, () -> set(() -> c.riftPrism = !c.riftPrism));
 		button("Forget the scan", rx, ry + 3, 90, false, Bag.scanned(), "Clears the stored bag (after switching profile)", Bag::clear);
 		return Math.max(ly, ry + 20);
 	}

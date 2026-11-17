@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.function.BooleanSupplier;
 
 /**
- * Spends a budget for the most Magical Power. Every accessory line offers a few
+ * Spends a budget for the most Accessory Power. Every accessory line offers a few
  * exclusive options (buy it, buy a higher tier, add a recombobulator); new lines
  * also take a bag slot, and slots beyond the free ones cost coins at Jacobus.
  * That is a multiple-choice knapsack over coins and slots, solved exactly:
@@ -20,7 +20,7 @@ public final class Planner {
 	public static final int SLOTS_PER_UPGRADE = 2;
 
 	/**
-	 * `dupesToRemove`: bag slots the plan frees by taking dupes out; `jacobusUpgrades`: slot
+	 * `dupesToRemove`: bag slots the plan frees by taking dupes out of the bag; `jacobusUpgrades`: slot
 	 * upgrades to buy (`slotCost` coins). `total` = picks + slots; `limitedBySlots`: more
 	 * coins wouldn't help without more slots (and Jacobus' count isn't known or is maxed).
 	 */
@@ -29,13 +29,18 @@ public final class Planner {
 
 	private Planner() {}
 
-	/** Price of Jacobus' n-th accessory bag upgrade (1-based): 1.5M, 4x 5M, 5x 8M, 10x 12M, then 20M. */
+	/**
+	 * Price of Jacobus' n-th accessory bag upgrade (1-based), as of SkyBlock 0.27.3:
+	 * 100k, 250k, 500k, 1M, then 1.5M rising by 500k per upgrade up to 9.5M (the 21st), then 10M.
+	 * All 99 cost 875.35M.
+	 */
 	public static double jacobusPrice(int n) {
-		if (n <= 1) return 1_500_000;
-		if (n <= 5) return 5_000_000;
-		if (n <= 10) return 8_000_000;
-		if (n <= 20) return 12_000_000;
-		return 20_000_000;
+		if (n <= 1) return 100_000;
+		if (n == 2) return 250_000;
+		if (n == 3) return 500_000;
+		if (n == 4) return 1_000_000;
+		if (n <= 21) return 1_500_000 + (n - 5) * 500_000.0;
+		return 10_000_000;
 	}
 
 	/** Cost of `more` upgrades after `bought`; infinite past the 99th. */
@@ -161,7 +166,8 @@ public final class Planner {
 
 	public static Plan plan(Analysis a, Analysis.Player p, double budget, BooleanSupplier cancelled) {
 		budget = Math.max(0, budget);
-		int free = Math.max(0, p.freeSlots()), dupes = a.dupes.size(), jac = p.jacobusBought();
+		// since 0.27.3 a line can't be in the bag twice; only a scan from before that holds dupes
+		int free = Math.max(0, p.freeSlots()), dupes = a.bagDupes(), jac = p.jacobusBought();
 
 		// options the budget can pay for, split by whether they need a slot
 		List<List<Option>> upgrades = new ArrayList<>(), fresh = new ArrayList<>();
