@@ -27,6 +27,8 @@ public final class Bag {
 	public static final class Item {
 		public String id = "", name = "", rarity = "COMMON";
 		public boolean recomb;
+		/** "Accessory Power: +12" on the item; -1 if it didn't say */
+		public int power = -1;
 	}
 
 	/** One accessory line as a bag page shows it: what's in it, or null when it's empty. */
@@ -44,9 +46,10 @@ public final class Bag {
 		long at;
 	}
 
-	// "Accessory Bag Slots: 45/63", "Slots: 45/63", "Slots Used: 1,045 / 1,063"
+	// "Current Accessory Bag Slots: 102/107" (the bag's "Need more room?" button), "Slots: 45/63"
 	private static final Pattern SLOTS = Pattern.compile("(?i)\\bslots?(?: used)?:\\s*([0-9,]+)\\s*/\\s*([0-9,]+)");
-	// "Accessory Power: 1,234" (the old name, "Magical Power", is read too)
+	// "Accessory Power: 966" on the bag's own item; not an accessory's "Accessory Power: +12"
+	// (the old name, "Magical Power", is read too)
 	private static final Pattern POWER = Pattern.compile("(?i)(?:total )?(?:accessory|magical) power:\\s*([0-9,]+)");
 
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -210,7 +213,7 @@ public final class Bag {
 		List<Owned> out = new ArrayList<>();
 		for (Item i : state().lines.values()) {
 			Rarity r = Rarity.parse(i.rarity);
-			out.add(new Owned(i.id, i.name, r == null ? Rarity.COMMON : r, i.recomb, 0, -1, true));
+			out.add(new Owned(i.id, i.name, r == null ? Rarity.COMMON : r, i.recomb, 0, -1, true, i.power));
 		}
 		out.addAll(inventory);
 		return out;

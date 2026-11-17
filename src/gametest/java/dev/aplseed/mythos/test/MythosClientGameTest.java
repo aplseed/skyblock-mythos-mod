@@ -195,10 +195,22 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 		}
 	}
 
-	/** An accessory as the bag shows it: SkyBlock id, rarity on the last lore line, recombobulated or not. */
+	/** An accessory as an inventory shows it: SkyBlock id, rarity on the last lore line, recombobulated or not. */
 	private static ItemStack accessory(String id, String name, String rarity, boolean recomb) {
-		ItemStack s = named(Items.PLAYER_HEAD, name, 1, "Grants something.", "",
-				recomb ? "a " + rarity + " ACCESSORY a" : rarity + " ACCESSORY");
+		return accessory(id, name, rarity, recomb, false);
+	}
+
+	/** An accessory as it looks in the 0.27.3 bag (from a real dump); `stored` adds "Left-click to remove!". */
+	private static ItemStack accessory(String id, String name, String rarity, boolean recomb, boolean stored) {
+		List<String> lore = new ArrayList<>(List.of("Skilled Game Stage", "", "Accessory Power: +" + switch (rarity) {
+			case "COMMON" -> 3;
+			case "UNCOMMON" -> 5;
+			case "RARE" -> 8;
+			case "EPIC" -> 12;
+			default -> id.equals("HEGEMONY_ARTIFACT") ? 32 : 16;
+		}, "", "Grants something.", "", recomb ? "a " + rarity + " ACCESSORY a" : rarity + " ACCESSORY"));
+		if (stored) lore.addAll(List.of("", "Left-click to remove!"));
+		ItemStack s = named(Items.PLAYER_HEAD, name, 1, lore.toArray(String[]::new));
 		CompoundTag tag = new CompoundTag();
 		tag.putString("id", id);
 		if (recomb) tag.putInt("rarity_upgrades", 1);
@@ -206,23 +218,31 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 		return s;
 	}
 
-	/** A slot of the 0.27.3 bag for an accessory you don't have: no SkyBlock id, the accessory's name. */
+	/** A slot of the 0.27.3 bag for an accessory you don't have: no SkyBlock id, nothing to remove. */
 	private static ItemStack missing(String name) {
-		return named(Items.CLAY_BALL, name, 1, "You don't have this accessory!", "", "Click to view how to obtain it!");
+		return named(Items.CLAY_BALL, name, 1, "Expert Game Stage", "", "Right-click to view recipes!");
 	}
 
 	/**
-	 * A 6-row page of the 0.27.3 bag: one slot per accessory line from slot 0, then the
-	 * bottom row with sorting, search, close and an info item showing `info` (slot use).
+	 * A page of the 0.27.3 bag laid out as in a real dump: the bag's item (with the Accessory
+	 * Power total) in the top row, accessories in the 7x4 block inside a blank border, and the
+	 * bottom row with paging, "Need more room?" (slot use, `slots`), search and sort.
 	 */
-	private static void openBag(Minecraft mc, String title, List<ItemStack> items, String info) {
+	private static void openBag(Minecraft mc, String title, List<ItemStack> items, String slots, int power) {
 		SimpleContainer box = new SimpleContainer(54);
-		for (int i = 0; i < items.size(); i++) box.setItem(i, items.get(i));
-		for (int i = 45; i < 54; i++) box.setItem(i, named(Items.GLASS_PANE, " ", 1));
-		box.setItem(45, item("Sort", "Game Stage", "Alphabetical", "Missing First"));
-		box.setItem(48, item("Search"));
+		for (int i = 0; i < 54; i++) box.setItem(i, named(Items.GLASS_PANE, "", 1));
+		box.setItem(4, item("Accessory Bag", "A special bag which can hold", "Talismans, Rings, Artifacts, and Orbs", "",
+				"Accessory Power: " + power, "", "Selected Power: Silky", "+718.05 Crit Damage"));
+		int[] grid = {10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34, 37, 38, 39, 40, 41, 42, 43};
+		for (int i = 0; i < items.size(); i++) box.setItem(grid[i], items.get(i));
+		box.setItem(45, item("Previous Page", "Page 1"));
+		box.setItem(47, item("Need more room?", "You can expand your Accessory Bag", "by doing any of the following:", "",
+				"Current Accessory Bag " + slots));
+		box.setItem(48, item("Go Back", "To Your Bags"));
 		box.setItem(49, item("Close"));
-		box.setItem(50, item("Accessory Bag", "Your accessories grant their stats", "while stored here.", "", info));
+		box.setItem(50, item("Search", "Find accessories by name!", "", "Click to search!"));
+		box.setItem(51, item("Sort", "", "Rarity", "Game Stage", "Alphabetical", "Upgrades First", "▶ Missing First", "", "Click to switch sort!"));
+		box.setItem(53, item("Next Page", "Page 3"));
 		ChestMenu menu = ChestMenu.sixRows(1000, mc.player.getInventory(), box);
 		mc.gui.setScreen(new ContainerScreen(menu, mc.player.getInventory(), Component.literal(title)));
 	}
@@ -281,28 +301,33 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 			mc.player.getInventory().setItem(9, accessory("FEATHER_TALISMAN", "Feather Talisman", "COMMON", false));
 			mc.player.getInventory().setItem(10, accessory("WOLF_TALISMAN", "Wolf Talisman", "UNCOMMON", false));
 			// page 1 of 2: the feather talisman, the recombobulated wolf ring, two lines not in the bag
-			// (one slot without an id, one with an id but marked missing) and 41 more accessories
+			// (one slot without an id, one showing the accessory but with nothing to remove) and 24 more
 			List<ItemStack> page1 = new ArrayList<>(List.of(
-					accessory("FEATHER_TALISMAN", "Feather Talisman", "COMMON", false),
-					accessory("WOLF_RING", "Wolf Ring", "EPIC", true),
+					accessory("FEATHER_TALISMAN", "Feather Talisman", "COMMON", false, true),
+					accessory("WOLF_RING", "Wolf Ring", "EPIC", true, true),
 					missing("Speed Talisman"),
-					withId(missing("Scarf's Grimoire"), "SCARF_GRIMOIRE")));
-			for (int i = page1.size(); i < 45; i++) page1.add(accessory("FILLER_" + i, "Filler " + i, "COMMON", false));
-			openBag(mc, "Accessory Bag (1/2)", page1, "Slots: 44/60");
+					accessory("SCARF_GRIMOIRE", "Scarf's Grimoire", "EPIC", false, false)));
+			for (int i = 0; i < 24; i++) page1.add(accessory("FILLER_" + i, "Filler " + i, "COMMON", false, true));
+			openBag(mc, "(1/2) Accessory Bag", page1, "Slots: 44/60", 170);
 		});
-		// 3 feather + 12 ring (epic once recombobulated) + 41 fillers x 3
+		// 3 feather + 12 ring (epic once recombobulated) + 24 fillers x 3
 		List<String> p1 = panelAfter(ctx, "accessory-bag", 30);
-		expect("accessory bag page 1", p1, "Accessories  page 1/2", "Accessory Power  138", "Accessories  43", "Free slots  16",
+		expect("accessory bag page 1", p1, "Accessories  page 1/2", "Accessory Power  87", "Accessories  26", "Free slots  16",
 				"Open page 2 to finish the scan", "Spares  2 not needed", "Feather Talisman  already in the bag", "Wolf Talisman  bag has Wolf Ring",
 				"Cheapest power", "Speed Talisman  5k  +3");
 		ctx.runOnClient(mc -> mc.gui.setScreen(null));
 		ctx.waitTicks(5);
 
-		// page 2: the hegemony artifact (it counts twice) and the titanium relic's empty slot
-		ctx.runOnClient(mc -> openBag(mc, "Accessory Bag (2/2)", List.of(
-				accessory("HEGEMONY_ARTIFACT", "Hegemony Artifact", "LEGENDARY", false), missing("Titanium Relic")), "Slots: 44/60"));
+		// page 2: the hegemony artifact (it counts twice), the titanium relic's empty slot, 17 more
+		ctx.runOnClient(mc -> {
+			List<ItemStack> page2 = new ArrayList<>(List.of(
+					accessory("HEGEMONY_ARTIFACT", "Hegemony Artifact", "LEGENDARY", false, true), missing("Titanium Relic")));
+			for (int i = 24; i < 41; i++) page2.add(accessory("FILLER_" + i, "Filler " + i, "COMMON", false, true));
+			openBag(mc, "(2/2) Accessory Bag", page2, "Slots: 44/60", 170);
+		});
 		List<String> p2 = panelAfter(ctx, "accessory-bag-2", 30);
-		expect("accessory bag page 2", p2, "Accessory Power  170", "Free slots  16");
+		expect("accessory bag page 2", p2, "Accessory Power  170", "Accessories  44", "Free slots  16");
+		if (String.join("\n", p2).contains("the game says")) failures.add("accessory bag: Mythos' power differs from the bag's own");
 		if (String.join("\n", p2).contains("finish the scan")) failures.add("accessory bag: still asks for a page after both were opened");
 		ctx.runOnClient(mc -> mc.gui.setScreen(null));
 		ctx.waitTicks(5);
@@ -375,7 +400,7 @@ public final class MythosClientGameTest implements FabricClientGameTest {
 			if (p.bins().size() < 100) failures.add("live: only " + p.bins().size() + " accessories with an open BIN");
 			long withRecipe = p.recipes().values().stream().filter(r -> !r.parts().isEmpty()).count();
 			if (withRecipe < 50) failures.add("live: only " + withRecipe + " recipes loaded");
-			openBag(mc, "Accessory Bag", List.of(accessory("FEATHER_TALISMAN", "Feather Talisman", "COMMON", false)), "Slots: 1/18");
+			openBag(mc, "Accessory Bag", List.of(accessory("FEATHER_TALISMAN", "Feather Talisman", "COMMON", false, true)), "Slots: 1/18", 3);
 		});
 		panelAfter(ctx, "live-bag", 30);
 		ctx.runOnClient(mc -> mc.gui.setScreen(null));
