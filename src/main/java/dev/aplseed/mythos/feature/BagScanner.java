@@ -30,16 +30,17 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
  * and the cheapest power still to buy.
  *
  * Since SkyBlock 0.27.3 the bag has a slot for every accessory line, filled or not, and can
- * be sorted and searched. A filled slot holds the accessory itself: its SkyBlock id and a
- * rarity line ending in ACCESSORY. An empty one stands for the line without being the item -
- * it carries no id, or says in its lore that the accessory is missing. Slot use comes from
- * "Slots: 45/63" text in the menu or the Accessory Bag tab-list widget.
+ * be sorted and searched. From a real dump: the title is "(5/6) Accessory Bag"; the bag's
+ * own item (top row) shows "Accessory Power: 966"; accessories sit in the 7x4 block inside the
+ * border, a filled one as the item itself (SkyBlock id, "Accessory Power: +12", "a EPIC
+ * ACCESSORY a" when recombobulated) with "Left-click to remove!"; the bottom row has paging,
+ * search, sort and "Need more room?" with "Current Accessory Bag Slots: 102/107". A slot
+ * that can't be removed is a line the bag doesn't hold.
  */
 public final class BagScanner implements MenuFeature {
-	private static final Pattern TITLE = Pattern.compile("^Accessory Bag(?: \\((\\d+)/(\\d+)\\))?");
-	/** lore that marks a slot as a placeholder for an accessory you don't have in the bag */
-	private static final String[] MISSING = {"missing", "not in your accessory bag", "not in your bag", "you don't have",
-		"you do not have", "not obtained", "not collected", "click to place", "not unlocked"};
+	// "(5/6) Accessory Bag"; "Accessory Bag (5/6)" and a bare "Accessory Bag" are read too
+	private static final Pattern TITLE = Pattern.compile("^(?:\\((\\d+)/(\\d+)\\) )?Accessory Bag(?: \\((\\d+)/(\\d+)\\))?(?: ➜.*)?$");
+	private static final Pattern ITEM_POWER = Pattern.compile("^Accessory Power: \\+([0-9,]+)$");
 
 	private int page = 1, pages = 1;
 
@@ -51,7 +52,7 @@ public final class BagScanner implements MenuFeature {
 	@Override
 	public boolean matches(String title) {
 		// The Rift's bag is separate and its accessories don't count outside it
-		return TITLE.matcher(title).find() && !title.contains("Rift");
+		return TITLE.matcher(title).matches() && !title.contains("Rift");
 	}
 
 	/** An accessory by its lore ("RARE ACCESSORY", "a EPIC DUNGEON ACCESSORY a") or a known id. */
@@ -65,13 +66,25 @@ public final class BagScanner implements MenuFeature {
 		return c != null && c.byId.containsKey(e.id());
 	}
 
-	/** A slot standing for an accessory the bag doesn't hold. */
-	static boolean placeholder(Menu.Entry e) {
-		for (String l : e.lore()) {
-			String low = l.toLowerCase(Locale.ROOT);
-			for (String m : MISSING) if (low.contains(m)) return true;
-		}
+	/** A filled slot: the accessory is in the bag, so the game offers to take it out. */
+	static boolean stored(Menu.Entry e) {
+		for (String l : e.lore()) if (l.toLowerCase(Locale.ROOT).contains("click to remove")) return true;
 		return false;
+	}
+
+	/** "a EPIC ACCESSORY a": the obfuscated marks a recombobulated item's rarity line carries. */
+	private static boolean recombobulated(Menu.Entry e) {
+		if (Items.customInt(e.stack(), "rarity_upgrades") > 0) return true;
+		for (String l : e.lore()) if (l.startsWith("a ") && l.endsWith(" a") && l.contains("CESSORY")) return true;
+		return false;
+	}
+
+	private static int power(Menu.Entry e) {
+		for (String l : e.lore()) {
+			Matcher m = ITEM_POWER.matcher(l);
+			if (m.matches()) return (int) Items.parse(m.group(1));
+		}
+		return -1;
 	}
 
 	private static Rarity rarity(Menu.Entry e) {
@@ -91,10 +104,11 @@ public final class BagScanner implements MenuFeature {
 	@Override
 	public void update(Menu menu) {
 		Matcher m = TITLE.matcher(menu.title);
-		if (!m.find() || menu.rows < 2) return;
-		page = m.group(1) == null ? 1 : (int) Math.max(1, Items.parse(m.group(1)));
-		pages = m.group(2) == null ? 1 : (int) Math.max(page, Items.parse(m.group(2)));
-		int area = (menu.rows - 1) * 9;     // the bottom row is navigation, sorting and search
+		if (!m.matches() || menu.rows < 2) return;
+		String p = m.group(1) != null ? m.group(1) : m.group(3), n = m.group(1) != null ? m.group(2) : m.group(4);
+		page = p == null ? 1 : (int) Math.max(1, Items.parse(p));
+		pages = n == null ? 1 : (int) Math.max(page, Items.parse(n));
+		int area = (menu.rows - 1) * 9;     // the bottom row is paging, search, sort and slot use
 
 		Catalog cat = AccData.catalog();
 		Map<String, String> byName = new HashMap<>();
@@ -106,7 +120,7 @@ public final class BagScanner implements MenuFeature {
 			text.add(e.name());
 			text.addAll(e.lore());
 			if (e.slot().index >= area) continue;
-			boolean real = isAccessory(e) && !placeholder(e);
+			boolean real = isAccessory(e) && stored(e);
 			String line = line(cat, e.id(), e.name(), byName);
 			if (line == null) continue;     // not an accessory slot (filler, buttons)
 			if (!real) {
@@ -118,7 +132,8 @@ public final class BagScanner implements MenuFeature {
 			it.id = e.id();
 			it.name = e.name();
 			it.rarity = rarity(e).name();
-			it.recomb = Items.customInt(e.stack(), "rarity_upgrades") > 0;
+			it.recomb = recombobulated(e);
+			it.power = power(e);
 			seen.add(new Bag.Seen(line, it));
 		}
 		if (!Bag.readCounts(text)) Bag.readCounts(TabList.lines());
@@ -127,7 +142,7 @@ public final class BagScanner implements MenuFeature {
 		List<Analysis.Owned> carried = new ArrayList<>();
 		for (Menu.Entry e : menu.inventory) {
 			if (isAccessory(e)) {
-				carried.add(new Analysis.Owned(e.id(), e.name(), rarity(e), Items.customInt(e.stack(), "rarity_upgrades") > 0, 0, e.slot().index, false));
+				carried.add(new Analysis.Owned(e.id(), e.name(), rarity(e), recombobulated(e), 0, e.slot().index, false, power(e)));
 			}
 		}
 		Bag.inventory(carried);

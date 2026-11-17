@@ -16,7 +16,15 @@ import java.util.Set;
  */
 public final class Analysis {
 	/** An accessory the player has. `inBag` false: seen in the inventory, not in the bag. */
-	public record Owned(String id, String name, Rarity rarity, boolean recomb, int page, int slot, boolean inBag) {}
+	/**
+	 * `power`: the Accessory Power the game shows on the item ("Accessory Power: +12"), or -1
+	 * when it doesn't say. It covers what rarity alone can't, such as the Abicase's contacts.
+	 */
+	public record Owned(String id, String name, Rarity rarity, boolean recomb, int page, int slot, boolean inBag, int power) {
+		public Owned(String id, String name, Rarity rarity, boolean recomb, int page, int slot, boolean inBag) {
+			this(id, name, rarity, recomb, page, slot, inBag, -1);
+		}
+	}
 
 	/**
 	 * `unlocks`: requirement key -> the player's level (missing = not told, treated as locked).
@@ -195,7 +203,7 @@ public final class Analysis {
 	}
 
 	private static int mp(Owned o) {
-		return Catalog.mult(o.id()) * o.rarity().mp;
+		return o.power() >= 0 ? o.power() : Catalog.mult(o.id()) * o.rarity().mp;
 	}
 
 	private void line(Catalog cat, Prices prices, Player player, String fam, Owned cur, List<Owned> inBag, List<Owned> inInv) {
