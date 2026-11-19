@@ -87,7 +87,8 @@ public final class GhostTracker {
 
 	/** You hit something: remember Ghosts so their death counts as your kill. */
 	public static void onAttack(Entity target) {
-		if (!on() || !inMist || target == null || target.getType() != EntityType.CREEPER) return;
+		// Ghosts are invisible charged creepers; compare the registry id, which is stable across versions
+		if (!on() || !inMist || target == null || !"creeper".equals(EntityType.getKey(target.getType()).getPath())) return;
 		HIT.put(target.getId(), System.currentTimeMillis());
 		var player = Minecraft.getInstance().player;
 		if (player != null) weapon = Items.name(player.getMainHandItem());
