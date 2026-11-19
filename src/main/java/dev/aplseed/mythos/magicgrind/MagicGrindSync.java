@@ -127,7 +127,6 @@ public final class MagicGrindSync implements MenuFeature {
 	/** Every client tick: read the tab list now and then, and send when something changed. */
 	public static void tick() {
 		if (!Mythos.config().magicgrind || !Mythos.active()) return;
-		if (ticks % 20 == 0 && Minecraft.getInstance().gui.screen() == null) readWeapon();
 		if (++ticks % 100 == 0) {
 			List<String> tab = TabList.lines();
 			boolean rift = MagicGrindParse.inRift(tab);
@@ -151,7 +150,21 @@ public final class MagicGrindSync implements MenuFeature {
 		return MagicGrindParse.itemMagicFind(dev.aplseed.mythos.util.Items.lore(player.getMainHandItem())).orElse(0);
 	}
 
-	/** The weapon you're holding while playing (not in a menu): its own Magic Find line, 0 if it has none. */
+	/** A RARE DROP chat line: the game's own Magic Find for that drop. */
+	public static void onChat(net.minecraft.network.chat.Component message, boolean overlay) {
+		if (overlay || !Mythos.config().magicgrind || !Mythos.active()) return;
+		String text = dev.aplseed.mythos.util.Items.plain(message);
+		if (!text.contains("DROP!")) return;
+		MagicGrindParse.RareDrop d = MagicGrindParse.rareDrop(text);
+		if (d != null) MagicGrindClient.sendDrop(d.item(), d.magicFind());
+	}
+
+	/** Called when you hit a mob: the item you attack with is the weapon whose Magic Find counts. */
+	public static void onAttack() {
+		if (Mythos.config().magicgrind && Mythos.active()) readWeapon();
+	}
+
+	/** The weapon in hand: its own Magic Find line, 0 if it has none. */
 	private static void readWeapon() {
 		var player = Minecraft.getInstance().player;
 		if (player == null) return;

@@ -220,6 +220,12 @@ public final class Mythos implements ClientModInitializer {
 
 		Commands.register();
 		ClientReceiveMessageEvents.GAME.register(ShardTracker::onChat);
+		ClientReceiveMessageEvents.GAME.register(dev.aplseed.mythos.magicgrind.MagicGrindSync::onChat);
+		// the weapon you actually hit mobs with (not the Aspect of the Void you teleport with) sets weapon Magic Find
+		net.fabricmc.fabric.api.event.player.AttackEntityCallback.EVENT.register((player, level, hand, entity, hit) -> {
+			if (level.isClientSide()) dev.aplseed.mythos.magicgrind.MagicGrindSync.onAttack();
+			return net.minecraft.world.InteractionResult.PASS;
+		});
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			while (OVERLAY_KEY.consumeClick()) toggleOverlays();
 			while (SCREEN_KEY.consumeClick()) open(null);

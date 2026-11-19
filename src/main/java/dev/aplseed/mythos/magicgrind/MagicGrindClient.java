@@ -69,6 +69,21 @@ public final class MagicGrindClient {
 		});
 	}
 
+	/** Reports a rare drop and the Magic Find the game applied to it. */
+	public static void sendDrop(String item, double magicFind) {
+		if (!configured()) return;
+		JsonObject j = new JsonObject();
+		j.addProperty("item", item);
+		j.addProperty("mf", magicFind);
+		try {
+			HttpRequest req = request("/api/mod/drop").header("Content-Type", "application/json")
+					.POST(HttpRequest.BodyPublishers.ofString(j.toString())).build();
+			CLIENT.sendAsync(req, HttpResponse.BodyHandlers.discarding());
+		} catch (IllegalArgumentException ignored) {
+			// bad address: the status line already says so
+		}
+	}
+
 	/** Checks the address and key, and fetches the best grind for the window. */
 	public static void ping() {
 		if (!configured()) {

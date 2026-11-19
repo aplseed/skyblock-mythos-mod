@@ -80,6 +80,19 @@ class MagicGrindParseTest {
 	}
 
 	@Test
+	void rareDropLine() {
+		// real chat line
+		var d = MagicGrindParse.rareDrop("RARE DROP! Sorrow (+105 Magic Find)");
+		assertEquals("Sorrow", d.item());
+		assertEquals(105.0, d.magicFind());
+		var v = MagicGrindParse.rareDrop("VERY RARE DROP! 2x Plasma (+88.5 ✯ Magic Find)");
+		assertEquals("Plasma", v.item());
+		assertEquals(88.5, v.magicFind());
+		assertNull(MagicGrindParse.rareDrop("RARE DROP! Sorrow"));
+		assertNull(MagicGrindParse.rareDrop("[MVP+] someone: RARE DROP! Sorrow (+999 Magic Find)"));
+	}
+
+	@Test
 	void romanNumerals() {
 		assertEquals(4, MagicGrindParse.roman("IV"));
 		assertEquals(25, MagicGrindParse.roman("XXV"));
