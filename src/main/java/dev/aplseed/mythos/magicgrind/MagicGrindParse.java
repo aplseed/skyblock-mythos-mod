@@ -84,7 +84,8 @@ public final class MagicGrindParse {
 		Map<String, Integer> out = new java.util.LinkedHashMap<>();
 		for (String raw : hover.split("\\n")) {
 			Matcher m = SACK_LINE.matcher(raw.trim());
-			if (m.matches()) out.merge(m.group(2).trim(), Integer.parseInt(m.group(1).replace(",", "")), Integer::sum);
+			// Hypixel puts a private-use icon glyph before gemstone names ("\uE053 Rough Jade Gemstone")
+			if (m.matches()) out.merge(m.group(2).replaceAll("[\\uE000-\\uF8FF]", "").trim(), Integer.parseInt(m.group(1).replace(",", "")), Integer::sum);
 		}
 		return out;
 	}

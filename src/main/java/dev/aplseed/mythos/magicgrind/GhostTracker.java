@@ -99,7 +99,11 @@ public final class GhostTracker {
 		String text = Items.plain(message);
 		long now = System.currentTimeMillis();
 		if (text.startsWith("[Sacks]") && now - lastKill < 10_000) {
-			for (Map.Entry<String, Integer> e : MagicGrindParse.sackItems(hover(message)).entrySet()) SACKS.merge(e.getKey(), e.getValue(), Integer::sum);
+			java.util.Set<String> hovers = new java.util.LinkedHashSet<>();
+			hovers(message, hovers);
+			// the same hover sits on several parts of the [Sacks] message: count each distinct one once
+			for (String h : hovers)
+				for (Map.Entry<String, Integer> e : MagicGrindParse.sackItems(h).entrySet()) SACKS.merge(e.getKey(), e.getValue(), Integer::sum);
 			dirty = true;
 		}
 		MagicGrindParse.RareDrop d = MagicGrindParse.rareDrop(text);
@@ -113,13 +117,11 @@ public final class GhostTracker {
 		}
 	}
 
-	/** All hover text inside a chat message (the [Sacks] summary keeps its item list there). */
-	private static String hover(Component c) {
-		StringBuilder sb = new StringBuilder();
+	/** Every distinct hover text inside a chat message (the [Sacks] summary keeps its item list there). */
+	private static void hovers(Component c, java.util.Set<String> out) {
 		HoverEvent h = c.getStyle().getHoverEvent();
-		if (h instanceof HoverEvent.ShowText(Component value)) sb.append(value.getString()).append('\n');
-		for (Component sib : c.getSiblings()) sb.append(hover(sib));
-		return sb.toString();
+		if (h instanceof HoverEvent.ShowText(Component value)) out.add(value.getString());
+		for (Component sib : c.getSiblings()) hovers(sib, out);
 	}
 
 	/** Bestiary pages: Ghost's "Kills:" line, to check the kill count against the game's own. */
@@ -216,6 +218,7 @@ public final class GhostTracker {
 		JsonObject j = new JsonObject();
 		j.addProperty("id", id);
 		j.addProperty("grind", "Ghost");
+		j.addProperty("sacks_deduped", true);
 		j.addProperty("started", started / 1000.0);
 		j.addProperty("active_seconds", activeMs / 1000.0);
 		j.addProperty("kills", kills);
