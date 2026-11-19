@@ -31,6 +31,8 @@ public final class MagicGrindSync implements MenuFeature {
 	private static String weaponName = "";
 	private static final Map<String, Integer> SLAYERS = new TreeMap<>();
 	private static final Map<String, Integer> BESTIARY = new TreeMap<>();
+	private static List<MagicGrindParse.FlatEntry> flat = List.of();
+	private static long bagVersion = -1;
 	private static boolean dirty;
 	private static long lastSent;
 	private static int ticks;
@@ -44,7 +46,7 @@ public final class MagicGrindSync implements MenuFeature {
 
 	@Override
 	public boolean matches(String title) {
-		return title.equals("SkyBlock Menu") || title.contains("Stats") || title.contains("Profile")
+		return title.equals("SkyBlock Menu") || title.contains("Stats") || title.contains("Profile") || title.startsWith("Magic Find")
 				|| title.contains("Slayer") || title.startsWith("Bestiary");
 	}
 
@@ -67,12 +69,25 @@ public final class MagicGrindSync implements MenuFeature {
 		readHere += mfRead;
 		readHere += stat(all, "pet_luck", rift);
 		readHere += stat(all, "tracking", rift);
+		if (menu.title.startsWith("Magic Find") && menu.title.contains("Bonuses")) {
+			List<MagicGrindParse.FlatEntry> found = new ArrayList<>();
+			for (Menu.Entry e : menu.container) {
+				MagicGrindParse.FlatEntry f = MagicGrindParse.flatBonus(e.name(), e.lore());
+				if (f != null) found.add(f);
+			}
+			if (!found.isEmpty() && !found.equals(flat)) {
+				flat = List.copyOf(found);
+				dirty = true;
+			}
+			readHere += found.size();
+		}
 		if (menu.title.contains("Slayer")) {
 			Map<String, Integer> found = new TreeMap<>();
 			MagicGrindParse.slayers(all, found);
 			readHere += merge(SLAYERS, found);
 		}
 		if (menu.title.startsWith("Bestiary")) {
+			GhostTracker.onMenu(menu);
 			Map<String, Integer> found = new TreeMap<>();
 			int area = menu.rows > 1 ? (menu.rows - 1) * 9 : Integer.MAX_VALUE;   // bottom row is navigation
 			for (Menu.Entry e : menu.container) {
@@ -127,7 +142,6 @@ public final class MagicGrindSync implements MenuFeature {
 	/** Every client tick: read the tab list now and then, and send when something changed. */
 	public static void tick() {
 		if (!Mythos.config().magicgrind || !Mythos.active()) return;
-		if (ticks % 20 == 0 && Minecraft.getInstance().gui.screen() == null) readWeapon();
 		if (++ticks % 100 == 0) {
 			List<String> tab = TabList.lines();
 			boolean rift = MagicGrindParse.inRift(tab);
@@ -135,8 +149,12 @@ public final class MagicGrindSync implements MenuFeature {
 			stat(tab, "pet_luck", rift);
 			stat(tab, "tracking", rift);
 		}
+		if (dev.aplseed.mythos.acc.Bag.scanned() && dev.aplseed.mythos.acc.Bag.version() != bagVersion) {
+			bagVersion = dev.aplseed.mythos.acc.Bag.version();
+			dirty = true;
+		}
 		long now = System.currentTimeMillis();
-		boolean have = magicFind != null || petLuck != null || weaponMf != null || riftMagicFind != null || !SLAYERS.isEmpty() || !BESTIARY.isEmpty();
+		boolean have = !flat.isEmpty() || bagVersion >= 0 || magicFind != null || petLuck != null || weaponMf != null || riftMagicFind != null || !SLAYERS.isEmpty() || !BESTIARY.isEmpty();
 		if (!have || !MagicGrindClient.configured()) return;
 		if ((dirty && now - lastSent > MIN_GAP_MS) || now - lastSent > HEARTBEAT_MS) {
 			dirty = false;
@@ -151,7 +169,22 @@ public final class MagicGrindSync implements MenuFeature {
 		return MagicGrindParse.itemMagicFind(dev.aplseed.mythos.util.Items.lore(player.getMainHandItem())).orElse(0);
 	}
 
-	/** The weapon you're holding while playing (not in a menu): its own Magic Find line, 0 if it has none. */
+	/** A RARE DROP chat line: the game's own Magic Find for that drop. */
+	public static void onChat(net.minecraft.network.chat.Component message, boolean overlay) {
+		if (overlay || !Mythos.config().magicgrind || !Mythos.active()) return;
+		GhostTracker.onChat(message);
+		String text = dev.aplseed.mythos.util.Items.plain(message);
+		if (!text.contains("DROP!")) return;
+		MagicGrindParse.RareDrop d = MagicGrindParse.rareDrop(text);
+		if (d != null) MagicGrindClient.sendDrop(d.item(), d.magicFind());
+	}
+
+	/** Called when you hit a mob: the item you attack with is the weapon whose Magic Find counts. */
+	public static void onAttack() {
+		if (Mythos.config().magicgrind && Mythos.active()) readWeapon();
+	}
+
+	/** The weapon in hand: its own Magic Find line, 0 if it has none. */
 	private static void readWeapon() {
 		var player = Minecraft.getInstance().player;
 		if (player == null) return;
@@ -181,6 +214,30 @@ public final class MagicGrindSync implements MenuFeature {
 		if (petLuck != null) j.addProperty("pet_luck", petLuck);
 		if (riftMagicFind != null) j.addProperty("rift_mf", riftMagicFind);
 		if (tracking != null) j.addProperty("tracking", tracking);
+		if (!flat.isEmpty()) {
+			com.google.gson.JsonArray arr = new com.google.gson.JsonArray();
+			for (MagicGrindParse.FlatEntry f : flat) {
+				JsonObject o = new JsonObject();
+				o.addProperty("name", f.name());
+				o.addProperty("kind", f.kind());
+				o.addProperty("value", f.value());
+				com.google.gson.JsonArray ps = new com.google.gson.JsonArray();
+				for (MagicGrindParse.FlatPart p : f.parts()) {
+					JsonObject po = new JsonObject();
+					po.addProperty("name", p.name());
+					po.addProperty("value", p.value());
+					ps.add(po);
+				}
+				o.add("parts", ps);
+				arr.add(o);
+			}
+			j.add("mf_flat", arr);
+		}
+		if (dev.aplseed.mythos.acc.Bag.scanned()) {
+			com.google.gson.JsonArray ids = new com.google.gson.JsonArray();
+			for (var o : dev.aplseed.mythos.acc.Bag.owned()) if (o.inBag() && !o.id().isEmpty()) ids.add(o.id());
+			j.add("accessories", ids);
+		}
 		if (heldAtRead != null) j.addProperty("held_mf_at_read", heldAtRead);
 		if (weaponMf != null) {
 			j.addProperty("weapon_mf", weaponMf);

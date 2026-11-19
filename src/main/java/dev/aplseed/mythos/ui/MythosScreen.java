@@ -33,7 +33,7 @@ import net.minecraft.util.FormattedCharSequence;
  */
 public final class MythosScreen extends Screen {
 	public enum Tab {
-		OVERVIEW("Overview"), ACCESSORIES("Accessories"), SETTINGS("Settings");
+		OVERVIEW("Overview"), ACCESSORIES("Accessories"), MAGIC_FIND("Magic Find"), SETTINGS("Settings");
 
 		final String label;
 
@@ -367,6 +367,7 @@ public final class MythosScreen extends Screen {
 			case OVERVIEW -> overview(x, y, bw);
 			case SETTINGS -> settings(x, y, bw);
 			case ACCESSORIES -> accessories(x, y, bw);
+			case MAGIC_FIND -> magicFind(x, y, bw);
 		};
 		g.disableScissor();
 		int content = end + scroll - clipTop + PAD, view = clipBottom - clipTop;
@@ -604,6 +605,70 @@ public final class MythosScreen extends Screen {
 		putRight(price, priceX, y + 1, Theme.GOLD);
 		putRight(mp, mpX, y + 1, Theme.PINK);
 		zone(x - 3, y - 1, bw + 6, ROW, tip, click);
+	}
+
+	// ---- magic find sources (from MagicGrind) ----
+
+	private int magicFind(int x, int y, int bw) {
+		if (!dev.aplseed.mythos.magicgrind.MagicGrindClient.configured()) {
+			return para("Set up MagicGrind under Overview (address and pairing key). It works out which Magic Find sources you're missing and what each costs per +1 Magic Find.", x, y, bw, Theme.MUTED);
+		}
+		dev.aplseed.mythos.magicgrind.MagicGrindClient.refreshSources(false);
+		com.google.gson.JsonObject r = dev.aplseed.mythos.magicgrind.MagicGrindClient.sources();
+		if (r == null) return para(dev.aplseed.mythos.magicgrind.MagicGrindClient.sourcesLoading() ? "Loading from MagicGrind..." : dev.aplseed.mythos.magicgrind.MagicGrindClient.status(), x, y, bw, Theme.MUTED);
+		if (!r.get("accessories_known").getAsBoolean() || !r.get("flat_known").getAsBoolean()) {
+			y = para("To see what you already have: open your Accessory Bag (every page) and the Magic Find > Flat Bonuses menu (SkyBlock Menu > Stats > Magic Find).", x, y, bw, Theme.YELLOW);
+		}
+		button("Refresh", x + bw - 56, y, 56, false, !dev.aplseed.mythos.magicgrind.MagicGrindClient.sourcesLoading(), null,
+				() -> dev.aplseed.mythos.magicgrind.MagicGrindClient.refreshSources(true));
+		y = section("Missing Magic Find", "cheapest per +1 MF", x, y + 18, bw);
+		int shown = 0;
+		for (var el : r.getAsJsonArray("missing")) {
+			var m = el.getAsJsonObject();
+			shown++;
+			if (y > clipBottom || y + ROW < clipTop) {
+				y += ROW;
+				continue;
+			}
+			String search = m.get("search").getAsString();
+			boolean bz = m.get("bazaar").getAsBoolean();
+			double cost = m.get("cost").getAsDouble(), per = m.get("per_mf").getAsDouble();
+			String owned = m.has("owned") && !m.get("owned").isJsonNull() ? "you have " + m.get("owned").getAsString() + "; " : "";
+			itemRow(m.get("tier").getAsString(), Theme.TEXT, m.get("scope").getAsString(), Fmt.coins(cost), "+" + mfNum(m.get("gain").getAsDouble()), x, y, bw,
+					m.get("name").getAsString() + ": " + owned + Fmt.coins(per) + " per +1 MF, " + m.get("how").getAsString() + " - click: " + (bz ? "/bz " : "/ahs ") + search,
+					bz ? () -> Mythos.bazaarSearch(search, 0) : () -> Mythos.auctionSearch(search));
+			y += ROW;
+		}
+		if (shown == 0) y = para("Nothing priced is missing.", x, y, bw, Theme.GREEN);
+		y = section("Consumables", "coins per hour of uptime", x, y + 6, bw);
+		for (var el : r.getAsJsonArray("consumables")) {
+			var c = el.getAsJsonObject();
+			if (c.get("cost_hour").isJsonNull()) continue;
+			String search = c.get("search").getAsString();
+			boolean bz = c.get("bazaar").getAsBoolean();
+			boolean active = c.get("active").getAsBoolean();
+			itemRow(c.get("name").getAsString(), active ? Theme.GREEN : Theme.TEXT, active ? "active" : c.get("scope").getAsString(),
+					Fmt.coins(c.get("cost_hour").getAsDouble()) + "/h", "+" + mfNum(c.get("mf").getAsDouble()), x, y, bw,
+					c.get("name").getAsString() + ": lasts " + mfNum(c.get("hours").getAsDouble()) + " h - click: " + (bz ? "/bz " : "/ahs ") + search,
+					bz ? () -> Mythos.bazaarSearch(search, 0) : () -> Mythos.auctionSearch(search));
+			y += ROW;
+		}
+		var owned = r.getAsJsonArray("owned");
+		if (!owned.isEmpty()) {
+			y = section("You have", owned.size() + " sources", x, y + 6, bw);
+			for (var el : owned) {
+				var o = el.getAsJsonObject();
+				put(Theme.fit(font, o.get("owned").getAsString(), bw / 2), x, y, Theme.TEXT);
+				putRight("+" + mfNum(o.get("mf").getAsDouble()) + " on " + o.get("scope").getAsString(), x + bw, y, Theme.MUTED);
+				y += ROW;
+			}
+		}
+		return para("Full view with every source, consumable and owned-tier setting: MagicGrind's web UI > Magic Find sources.", x, y + 4, bw, Theme.FAINT);
+	}
+
+	/** 0.5 -> "0.5", 5.0 -> "5" */
+	private static String mfNum(double v) {
+		return v == Math.rint(v) ? Long.toString((long) v) : String.format(java.util.Locale.ROOT, "%.1f", v);
 	}
 
 	private int missing(Analysis a, int x, int y, int bw) {

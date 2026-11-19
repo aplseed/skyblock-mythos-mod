@@ -80,6 +80,50 @@ class MagicGrindParseTest {
 	}
 
 	@Test
+	void rareDropLine() {
+		// real chat line
+		var d = MagicGrindParse.rareDrop("RARE DROP! Sorrow (+105 Magic Find)");
+		assertEquals("Sorrow", d.item());
+		assertEquals(105.0, d.magicFind());
+		var v = MagicGrindParse.rareDrop("VERY RARE DROP! 2x Plasma (+88.5 ✯ Magic Find)");
+		assertEquals("Plasma", v.item());
+		assertEquals(88.5, v.magicFind());
+		assertNull(MagicGrindParse.rareDrop("RARE DROP! Sorrow"));
+		assertNull(MagicGrindParse.rareDrop("[MVP+] someone: RARE DROP! Sorrow (+999 Magic Find)"));
+	}
+
+	@Test
+	void flatBonusesMenu() {
+		// "Magic Find > Flat Bonuses" (real dump)
+		var potion = MagicGrindParse.flatBonus("Category: Potion Effect", List.of("Grouped", "", "Value: +11", "",
+				"+10 Magic Find Effect", "+1 Celestial Mason Jar", "", "Stats from your active potion", "effects.", "", "Click to dig even deeper!"));
+		assertEquals("Potion Effect", potion.name());
+		assertEquals(11.0, potion.value());
+		assertEquals(List.of(new MagicGrindParse.FlatPart("Magic Find Effect", 10), new MagicGrindParse.FlatPart("Celestial Mason Jar", 1)), potion.parts());
+		var shop = MagicGrindParse.flatBonus("Magic Find", List.of("Community Shop", "", "Value: +5", "", "Stats from community shop upgrades."));
+		assertEquals("Community Shop", shop.name());
+		var attr = MagicGrindParse.flatBonus("Magic Find", List.of("Attribute", "", "Value: +5", "", "Stats from your equipped Attributes."));
+		assertEquals("Attribute", attr.kind());
+		var bag = MagicGrindParse.flatBonus("Category: Accessory Bag", List.of("Grouped", "", "Value: +1", "", "+0.5 Pulse Ring", "+0.5 Anguish Talisman"));
+		assertEquals(2, bag.parts().size());
+		assertEquals(0.5, bag.parts().get(1).value());
+		assertNull(MagicGrindParse.flatBonus("Go Back", List.of("To Stats ➜ Magic Find")));
+		assertNull(MagicGrindParse.flatBonus("Group By Category", List.of("Groups all modifiers from the same", "category into one.", "", "Enabled: ON!")));
+	}
+
+	@Test
+	void trackerLines() {
+		assertEquals(1234567.0, MagicGrindParse.purse(List.of("Early Spring 20th", "⏣ The Mist", "Purse: 1,234,567")).getAsDouble());
+		assertEquals(12345.0, MagicGrindParse.purse(List.of("Piggy: 12,345 (+50)")).getAsDouble());
+		assertTrue(MagicGrindParse.purse(List.of("Bits: 1,000")).isEmpty());
+		var sacks = MagicGrindParse.sackItems("Added items:\n  +40 Rough Jade Gemstone (Gemstone Sack)\n  +1,280 Rough Amber Gemstone (Gemstone Sack)\n\nThis message can be disabled in the settings.");
+		assertEquals(40, sacks.get("Rough Jade Gemstone"));
+		assertEquals(1280, sacks.get("Rough Amber Gemstone"));
+		// real Bestiary lore
+		assertEquals(2664, MagicGrindParse.bestiaryKills(List.of("Mob Types:  Arcane,  Subterranean", "", "It is hard to find that which you", "cannot see.", "", "Kills: 2,664", "Deaths: 9")));
+	}
+
+	@Test
 	void romanNumerals() {
 		assertEquals(4, MagicGrindParse.roman("IV"));
 		assertEquals(25, MagicGrindParse.roman("XXV"));

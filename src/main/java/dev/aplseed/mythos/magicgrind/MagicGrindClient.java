@@ -69,6 +69,80 @@ public final class MagicGrindClient {
 		});
 	}
 
+	private static volatile JsonObject sources;
+	private static volatile long sourcesAt;
+	private static volatile boolean sourcesLoading;
+
+	/** The last list of missing Magic Find sources (null until fetched). */
+	public static JsonObject sources() {
+		return sources;
+	}
+
+	public static boolean sourcesLoading() {
+		return sourcesLoading;
+	}
+
+	/** Fetches the missing Magic Find sources when the cached list is older than a minute (or `force`). */
+	public static void refreshSources(boolean force) {
+		if (!configured() || sourcesLoading || (!force && System.currentTimeMillis() - sourcesAt < 60_000)) return;
+		sourcesLoading = true;
+		HttpRequest req;
+		try {
+			req = request("/api/mod/mf-sources").GET().build();
+		} catch (IllegalArgumentException e) {
+			sourcesLoading = false;
+			fail("Bad address");
+			return;
+		}
+		CLIENT.sendAsync(req, HttpResponse.BodyHandlers.ofString()).whenComplete((resp, err) -> {
+			sourcesLoading = false;
+			sourcesAt = System.currentTimeMillis();
+			if (err != null || resp.statusCode() != 200) {
+				fail(err != null ? reason(err) : resp.statusCode() == 401 ? "Wrong pairing key" : "HTTP " + resp.statusCode());
+				return;
+			}
+			try {
+				sources = JsonParser.parseString(resp.body()).getAsJsonObject();
+			} catch (Exception e) {
+				fail("Not a MagicGrind server");
+			}
+		});
+	}
+
+	/** Sends the Ghost tracker session; MagicGrind answers with actual vs expected for the HUD. */
+	public static void sendSession(JsonObject session) {
+		if (!configured()) return;
+		try {
+			HttpRequest req = request("/api/mod/session").header("Content-Type", "application/json")
+					.POST(HttpRequest.BodyPublishers.ofString(session.toString())).build();
+			CLIENT.sendAsync(req, HttpResponse.BodyHandlers.ofString()).whenComplete((resp, err) -> {
+				if (err != null || resp.statusCode() != 200) return;
+				try {
+					GhostTracker.accept(JsonParser.parseString(resp.body()).getAsJsonObject());
+				} catch (Exception ignored) {
+					// keep the last summary
+				}
+			});
+		} catch (IllegalArgumentException ignored) {
+			// bad address: the status line already says so
+		}
+	}
+
+	/** Reports a rare drop and the Magic Find the game applied to it. */
+	public static void sendDrop(String item, double magicFind) {
+		if (!configured()) return;
+		JsonObject j = new JsonObject();
+		j.addProperty("item", item);
+		j.addProperty("mf", magicFind);
+		try {
+			HttpRequest req = request("/api/mod/drop").header("Content-Type", "application/json")
+					.POST(HttpRequest.BodyPublishers.ofString(j.toString())).build();
+			CLIENT.sendAsync(req, HttpResponse.BodyHandlers.discarding());
+		} catch (IllegalArgumentException ignored) {
+			// bad address: the status line already says so
+		}
+	}
+
 	/** Checks the address and key, and fetches the best grind for the window. */
 	public static void ping() {
 		if (!configured()) {
