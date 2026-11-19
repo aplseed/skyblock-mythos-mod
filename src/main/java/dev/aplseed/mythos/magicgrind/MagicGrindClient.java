@@ -109,6 +109,18 @@ public final class MagicGrindClient {
 		});
 	}
 
+	/** Fire-and-forget JSON post to MagicGrind. */
+	public static void post(String path, JsonObject body) {
+		if (!configured()) return;
+		try {
+			HttpRequest req = request(path).header("Content-Type", "application/json")
+					.POST(HttpRequest.BodyPublishers.ofString(body.toString())).build();
+			CLIENT.sendAsync(req, HttpResponse.BodyHandlers.discarding());
+		} catch (IllegalArgumentException ignored) {
+			// bad address: the status line already says so
+		}
+	}
+
 	/** Sends the Ghost tracker session; MagicGrind answers with actual vs expected for the HUD. */
 	public static void sendSession(JsonObject session) {
 		if (!configured()) return;

@@ -226,6 +226,7 @@ public final class Mythos implements ClientModInitializer {
 			if (level.isClientSide()) {
 				dev.aplseed.mythos.magicgrind.MagicGrindSync.onAttack();
 				dev.aplseed.mythos.magicgrind.GhostTracker.onAttack(entity);
+				dev.aplseed.mythos.magicgrind.KineticTracker.onAttack(entity);
 			}
 			return net.minecraft.world.InteractionResult.PASS;
 		});
@@ -243,6 +244,7 @@ public final class Mythos implements ClientModInitializer {
 			ShardTracker.tick();
 			dev.aplseed.mythos.magicgrind.MagicGrindSync.tick();
 			dev.aplseed.mythos.magicgrind.GhostTracker.tick();
+			dev.aplseed.mythos.magicgrind.KineticTracker.tick();
 		});
 		ClientPlayConnectionEvents.JOIN.register((handler, sender, mc) -> {
 			if (!active()) return;
