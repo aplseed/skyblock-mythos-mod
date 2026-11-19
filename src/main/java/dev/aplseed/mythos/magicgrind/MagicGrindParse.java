@@ -33,6 +33,39 @@ public final class MagicGrindParse {
 	private static final Pattern RARE_DROP = Pattern.compile(
 			"^[A-Z][A-Z ]*DROP!\\s+(?:([0-9]+)x\\s+)?(.+?)\\s*\\(\\+" + NUM + "%?\\s*[^A-Za-z0-9\\s]?\\s*Magic Find\\)");
 
+	private static final Pattern VALUE = Pattern.compile("^Value:\\s*\\+" + NUM);
+	private static final Pattern PART = Pattern.compile("^\\+" + NUM + "\\s+(.+)$");
+
+	/** One entry of the "Magic Find > Flat Bonuses" menu: what gives it, its group, its value and grouped parts. */
+	public record FlatPart(String name, double value) {}
+
+	public record FlatEntry(String name, String kind, double value, List<FlatPart> parts) {}
+
+	/**
+	 * "Booster Cookie" / lore "Booster Cookie, , Value: +10" -> (Booster Cookie, Booster Cookie, 10, []);
+	 * "Category: Accessory Bag" / "Grouped, , Value: +1, , +0.5 Pulse Ring, +0.5 Anguish Talisman" -> parts.
+	 * Items without a "Value:" line (navigation) give null. A generic name ("Magic Find") takes its kind instead.
+	 */
+	public static FlatEntry flatBonus(String name, List<String> lore) {
+		Double value = null;
+		List<FlatPart> parts = new java.util.ArrayList<>();
+		for (String raw : lore) {
+			String line = raw.trim();
+			Matcher v = VALUE.matcher(line);
+			if (v.find()) {
+				value = Double.parseDouble(v.group(1).replace(",", ""));
+				continue;
+			}
+			Matcher p = PART.matcher(line);
+			if (value != null && p.matches()) parts.add(new FlatPart(p.group(2).trim(), Double.parseDouble(p.group(1).replace(",", ""))));
+		}
+		if (value == null) return null;
+		String n = name.trim().replaceFirst("^Category:\\s*", "");
+		String kind = lore.isEmpty() ? "" : lore.get(0).trim();
+		if (n.equals("Magic Find") && !kind.isEmpty()) n = kind;
+		return new FlatEntry(n, kind, value, parts);
+	}
+
 	/** A rare-drop chat line's item and the Magic Find the game applied, or null. */
 	public record RareDrop(String item, double magicFind) {}
 

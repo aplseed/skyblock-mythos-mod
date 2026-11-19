@@ -93,6 +93,25 @@ class MagicGrindParseTest {
 	}
 
 	@Test
+	void flatBonusesMenu() {
+		// "Magic Find > Flat Bonuses" (real dump)
+		var potion = MagicGrindParse.flatBonus("Category: Potion Effect", List.of("Grouped", "", "Value: +11", "",
+				"+10 Magic Find Effect", "+1 Celestial Mason Jar", "", "Stats from your active potion", "effects.", "", "Click to dig even deeper!"));
+		assertEquals("Potion Effect", potion.name());
+		assertEquals(11.0, potion.value());
+		assertEquals(List.of(new MagicGrindParse.FlatPart("Magic Find Effect", 10), new MagicGrindParse.FlatPart("Celestial Mason Jar", 1)), potion.parts());
+		var shop = MagicGrindParse.flatBonus("Magic Find", List.of("Community Shop", "", "Value: +5", "", "Stats from community shop upgrades."));
+		assertEquals("Community Shop", shop.name());
+		var attr = MagicGrindParse.flatBonus("Magic Find", List.of("Attribute", "", "Value: +5", "", "Stats from your equipped Attributes."));
+		assertEquals("Attribute", attr.kind());
+		var bag = MagicGrindParse.flatBonus("Category: Accessory Bag", List.of("Grouped", "", "Value: +1", "", "+0.5 Pulse Ring", "+0.5 Anguish Talisman"));
+		assertEquals(2, bag.parts().size());
+		assertEquals(0.5, bag.parts().get(1).value());
+		assertNull(MagicGrindParse.flatBonus("Go Back", List.of("To Stats ➜ Magic Find")));
+		assertNull(MagicGrindParse.flatBonus("Group By Category", List.of("Groups all modifiers from the same", "category into one.", "", "Enabled: ON!")));
+	}
+
+	@Test
 	void romanNumerals() {
 		assertEquals(4, MagicGrindParse.roman("IV"));
 		assertEquals(25, MagicGrindParse.roman("XXV"));
