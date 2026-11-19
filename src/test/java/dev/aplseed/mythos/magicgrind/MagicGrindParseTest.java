@@ -126,6 +126,16 @@ class MagicGrindParseTest {
 	}
 
 	@Test
+	void forgeTimesAndMiningIslands() {
+		assertEquals(41 * 60 + 43, MagicGrindParse.seconds("41m 43s"));   // real "Time Remaining:" format
+		assertEquals(86400 + 2 * 3600 + 5, MagicGrindParse.seconds("1d 2h 5s"));
+		assertEquals(-1, MagicGrindParse.seconds("Ready!"));
+		assertTrue(MagicGrindParse.onMiningIsland(List.of("Server: mini12A", "Area: Dwarven Mines")));
+		assertTrue(MagicGrindParse.onMiningIsland(List.of("Area: Glacite Mineshafts")));
+		assertFalse(MagicGrindParse.onMiningIsland(List.of("Area: Hub")));
+	}
+
+	@Test
 	void romanNumerals() {
 		assertEquals(4, MagicGrindParse.roman("IV"));
 		assertEquals(25, MagicGrindParse.roman("XXV"));

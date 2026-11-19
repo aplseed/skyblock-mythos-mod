@@ -46,13 +46,14 @@ public final class MagicGrindSync implements MenuFeature {
 
 	@Override
 	public boolean matches(String title) {
-		return title.equals("SkyBlock Menu") || title.contains("Stats") || title.contains("Profile") || title.startsWith("Magic Find")
+		return title.equals("The Forge") || title.equals("SkyBlock Menu") || title.contains("Stats") || title.contains("Profile") || title.startsWith("Magic Find")
 				|| title.contains("Slayer") || title.startsWith("Bestiary");
 	}
 
 	@Override
 	public void update(Menu menu) {
 		readHere = 0;
+		KineticTracker.onMenu(menu);
 		List<String> all = new ArrayList<>();
 		for (Menu.Entry e : menu.container) {
 			all.add(e.name());

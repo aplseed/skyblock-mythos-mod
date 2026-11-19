@@ -99,6 +99,37 @@ public final class MagicGrindParse {
 		return -1;
 	}
 
+	private static final Pattern DURATION_PART = Pattern.compile("(\\d+)\\s*([dhms])");
+
+	/** "1d 2h 41m 43s" / "41m 43s" -> seconds; -1 when there's no duration. */
+	public static long seconds(String s) {
+		Matcher m = DURATION_PART.matcher(s);
+		long total = 0;
+		boolean any = false;
+		while (m.find()) {
+			any = true;
+			long n = Long.parseLong(m.group(1));
+			total += switch (m.group(2)) {
+				case "d" -> n * 86400;
+				case "h" -> n * 3600;
+				case "m" -> n * 60;
+				default -> n;
+			};
+		}
+		return any ? total : -1;
+	}
+
+	/** Mining Islands, where the Gemstone Gauntlet's abilities work (tab "Area:" line). */
+	public static boolean onMiningIsland(List<String> tab) {
+		for (String l : tab) {
+			String t = l.trim();
+			if (!t.startsWith("Area:")) continue;
+			return t.contains("Dwarven Mines") || t.contains("Crystal Hollows") || t.contains("Mineshaft")
+					|| t.contains("Deep Caverns") || t.contains("Gold Mine");
+		}
+		return false;
+	}
+
 	/** A rare-drop chat line's item and the Magic Find the game applied, or null. */
 	public record RareDrop(String item, double magicFind) {}
 
