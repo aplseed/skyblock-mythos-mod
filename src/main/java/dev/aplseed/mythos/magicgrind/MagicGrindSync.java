@@ -87,6 +87,7 @@ public final class MagicGrindSync implements MenuFeature {
 			readHere += merge(SLAYERS, found);
 		}
 		if (menu.title.startsWith("Bestiary")) {
+			GhostTracker.onMenu(menu);
 			Map<String, Integer> found = new TreeMap<>();
 			int area = menu.rows > 1 ? (menu.rows - 1) * 9 : Integer.MAX_VALUE;   // bottom row is navigation
 			for (Menu.Entry e : menu.container) {
@@ -171,6 +172,7 @@ public final class MagicGrindSync implements MenuFeature {
 	/** A RARE DROP chat line: the game's own Magic Find for that drop. */
 	public static void onChat(net.minecraft.network.chat.Component message, boolean overlay) {
 		if (overlay || !Mythos.config().magicgrind || !Mythos.active()) return;
+		GhostTracker.onChat(message);
 		String text = dev.aplseed.mythos.util.Items.plain(message);
 		if (!text.contains("DROP!")) return;
 		MagicGrindParse.RareDrop d = MagicGrindParse.rareDrop(text);

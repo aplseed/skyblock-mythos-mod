@@ -66,6 +66,38 @@ public final class MagicGrindParse {
 		return new FlatEntry(n, kind, value, parts);
 	}
 
+	private static final Pattern PURSE = Pattern.compile("^(?:Purse|Piggy):\\s*" + NUM);
+	private static final Pattern SACK_LINE = Pattern.compile("^\\+([0-9][0-9,]*)\\s+(.+?)\\s*\\(([^)]*Sack)\\)\\s*$");
+	private static final Pattern KILLS = Pattern.compile("^Kills:\\s*" + NUM);
+
+	/** Coins in the purse from the scoreboard ("Purse: 1,234,567", "Piggy: 12,345 (+50)"). */
+	public static OptionalDouble purse(List<String> scoreboard) {
+		for (String l : scoreboard) {
+			Matcher m = PURSE.matcher(l.trim());
+			if (m.find()) return OptionalDouble.of(Double.parseDouble(m.group(1).replace(",", "")));
+		}
+		return OptionalDouble.empty();
+	}
+
+	/** A "[Sacks]" message's hover text: "+40 Rough Jade Gemstone (Gemstone Sack)" lines -> name -> count. */
+	public static Map<String, Integer> sackItems(String hover) {
+		Map<String, Integer> out = new java.util.LinkedHashMap<>();
+		for (String raw : hover.split("\\n")) {
+			Matcher m = SACK_LINE.matcher(raw.trim());
+			if (m.matches()) out.merge(m.group(2).trim(), Integer.parseInt(m.group(1).replace(",", "")), Integer::sum);
+		}
+		return out;
+	}
+
+	/** "Kills: 2,664" in a Bestiary entry's lore. */
+	public static long bestiaryKills(List<String> lore) {
+		for (String l : lore) {
+			Matcher m = KILLS.matcher(l.trim());
+			if (m.find()) return (long) Double.parseDouble(m.group(1).replace(",", ""));
+		}
+		return -1;
+	}
+
 	/** A rare-drop chat line's item and the Magic Find the game applied, or null. */
 	public record RareDrop(String item, double magicFind) {}
 

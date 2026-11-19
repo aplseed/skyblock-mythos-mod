@@ -109,6 +109,25 @@ public final class MagicGrindClient {
 		});
 	}
 
+	/** Sends the Ghost tracker session; MagicGrind answers with actual vs expected for the HUD. */
+	public static void sendSession(JsonObject session) {
+		if (!configured()) return;
+		try {
+			HttpRequest req = request("/api/mod/session").header("Content-Type", "application/json")
+					.POST(HttpRequest.BodyPublishers.ofString(session.toString())).build();
+			CLIENT.sendAsync(req, HttpResponse.BodyHandlers.ofString()).whenComplete((resp, err) -> {
+				if (err != null || resp.statusCode() != 200) return;
+				try {
+					GhostTracker.accept(JsonParser.parseString(resp.body()).getAsJsonObject());
+				} catch (Exception ignored) {
+					// keep the last summary
+				}
+			});
+		} catch (IllegalArgumentException ignored) {
+			// bad address: the status line already says so
+		}
+	}
+
 	/** Reports a rare drop and the Magic Find the game applied to it. */
 	public static void sendDrop(String item, double magicFind) {
 		if (!configured()) return;

@@ -223,7 +223,10 @@ public final class Mythos implements ClientModInitializer {
 		ClientReceiveMessageEvents.GAME.register(dev.aplseed.mythos.magicgrind.MagicGrindSync::onChat);
 		// the weapon you actually hit mobs with (not the Aspect of the Void you teleport with) sets weapon Magic Find
 		net.fabricmc.fabric.api.event.player.AttackEntityCallback.EVENT.register((player, level, hand, entity, hit) -> {
-			if (level.isClientSide()) dev.aplseed.mythos.magicgrind.MagicGrindSync.onAttack();
+			if (level.isClientSide()) {
+				dev.aplseed.mythos.magicgrind.MagicGrindSync.onAttack();
+				dev.aplseed.mythos.magicgrind.GhostTracker.onAttack(entity);
+			}
 			return net.minecraft.world.InteractionResult.PASS;
 		});
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
@@ -239,6 +242,7 @@ public final class Mythos implements ClientModInitializer {
 			SellWarnings.tick();
 			ShardTracker.tick();
 			dev.aplseed.mythos.magicgrind.MagicGrindSync.tick();
+			dev.aplseed.mythos.magicgrind.GhostTracker.tick();
 		});
 		ClientPlayConnectionEvents.JOIN.register((handler, sender, mc) -> {
 			if (!active()) return;
@@ -246,5 +250,6 @@ public final class Mythos implements ClientModInitializer {
 			SellWarnings.joined();
 		});
 		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(ID, "shard_session"), (g, delta) -> ShardTracker.renderHud(g));
+		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(ID, "ghost_tracker"), (g, delta) -> dev.aplseed.mythos.magicgrind.GhostTracker.renderHud(g));
 	}
 }
