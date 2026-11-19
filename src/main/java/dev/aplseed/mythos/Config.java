@@ -28,6 +28,12 @@ public final class Config {
 	public boolean sellWarnings = true;
 	public boolean shardTracker = true;
 
+	// MagicGrind (a separate server: github.com/aplseed/skyblock-magicgrind)
+	public boolean magicgrind = true;
+	public String magicgrindUrl = "";
+	/** the pairing key shown in MagicGrind's Settings, XXXX-XXXX-XXXX */
+	public String magicgrindKey = "";
+
 	public int forgeSlots = 7;
 	public int quickForgeLevel = 0;
 	public boolean coleMayor = false;
@@ -85,6 +91,8 @@ public final class Config {
 		collections.values().removeIf(v -> v == null);
 		jacobusUpgrades = Math.max(-1, Math.min(99, jacobusUpgrades));
 		if (accBudget == null) accBudget = "";
+		if (magicgrindUrl == null) magicgrindUrl = "";
+		if (magicgrindKey == null) magicgrindKey = "";
 	}
 
 	public void save() {

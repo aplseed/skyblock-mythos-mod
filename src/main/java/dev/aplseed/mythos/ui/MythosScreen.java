@@ -75,7 +75,7 @@ public final class MythosScreen extends Screen {
 	private boolean shift;
 	private String tooltip;
 	private String note;
-	private EditBox user, pass, url, budget;
+	private EditBox user, pass, url, budget, mgUrl, mgKey;
 
 	// the frame being drawn
 	private GuiGraphicsExtractor g;
@@ -107,13 +107,15 @@ public final class MythosScreen extends Screen {
 		left = (width - w) / 2;
 		top = (height - h) / 2;
 		scroll = 0;
-		user = pass = url = budget = null;
+		user = pass = url = budget = mgUrl = mgKey = null;
 		Config c = Mythos.config();
 		if (tab == Tab.OVERVIEW) {
 			url = box("http://127.0.0.1:5658", c.backendUrl, 200);
 			user = box("user", c.username, 32);
 			pass = box("password", "", 128);
 			pass.addFormatter((s, i) -> FormattedCharSequence.forward("*".repeat(s.length()), Style.EMPTY));
+			mgUrl = box("http://192.168.1.10:8420", c.magicgrindUrl, 200);
+			mgKey = box("XXXX-XXXX-XXXX", c.magicgrindKey, 32);
 		} else if (tab == Tab.ACCESSORIES && sub == Sub.BUDGET) {
 			budget = box("e.g. 50m", c.accBudget, 16);
 			budget.moveCursorToEnd(false);
@@ -181,6 +183,10 @@ public final class MythosScreen extends Screen {
 			saveUrl();
 			return true;
 		}
+		if (enter && mgUrl != null && (mgUrl.isFocused() || mgKey.isFocused())) {
+			saveMagicGrind();
+			return true;
+		}
 		return super.keyPressed(key);
 	}
 
@@ -204,6 +210,12 @@ public final class MythosScreen extends Screen {
 		String problem = Mythos.setBackendUrl(v);
 		note = problem;
 		if (problem != null) url.setValue(Mythos.config().backendUrl);
+	}
+
+	private void saveMagicGrind() {
+		String problem = Mythos.setMagicGrind(mgUrl.getValue(), mgKey.getValue());
+		note = problem;
+		if (problem == null) dev.aplseed.mythos.magicgrind.MagicGrindClient.ping();
 	}
 
 	private void applyBudget(String value) {
@@ -401,6 +413,24 @@ public final class MythosScreen extends Screen {
 		if (err != null) ly = para(err, x, ly, colW, note != null && !note.startsWith("Login failed") ? Theme.MUTED : Theme.RED);
 		ly = para("Panels for fusion, absorb, bazaar, forge and election need a skyblock-mythos server. The accessory calculator works without one.",
 				x, ly + 2, colW, Theme.FAINT);
+
+		ly = section("MagicGrind", c.magicgrind ? null : "sync off", x, ly + 6, colW);
+		boolean mgOk = dev.aplseed.mythos.magicgrind.MagicGrindClient.ok();
+		g.fill(x, ly + 2, x + 5, ly + 7, mgOk ? Theme.GREEN : Theme.RED);
+		put(Theme.fit(font, dev.aplseed.mythos.magicgrind.MagicGrindClient.status(), colW - 9), x + 9, ly, mgOk ? Theme.TEXT : Theme.MUTED);
+		ly += ROW + 2;
+		put("Address", x, ly + 3, Theme.MUTED);
+		place(mgUrl, x + 50, ly, colW - 50);
+		ly += 17;
+		put("Key", x, ly + 3, Theme.MUTED);
+		place(mgKey, x + 50, ly, colW - 50);
+		ly += 19;
+		button("Save + test", x + 50, ly, 70, true, true, "Both are shown in MagicGrind under Settings > Mod connection", this::saveMagicGrind);
+		ly += 19;
+		String mgBest = dev.aplseed.mythos.magicgrind.MagicGrindClient.best();
+		if (mgBest != null) ly = para("Best at your Magic Find: " + mgBest, x, ly, colW, Theme.GOLD);
+		ly = para("Open your SkyBlock Menu, Slayer menu and Bestiary once; MagicGrind ranks every Magic Find grind with what's read.",
+				x, ly, colW, Theme.FAINT);
 
 		int rx = wide ? x + colW + 12 : x, ry = wide ? y : ly + 6;
 		ry = section("Features", null, rx, ry, colW);
