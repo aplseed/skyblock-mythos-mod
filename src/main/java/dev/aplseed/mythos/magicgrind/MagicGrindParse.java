@@ -21,8 +21,12 @@ public final class MagicGrindParse {
 	private static final Map<String, Pattern> STAT = Map.of(
 			"magic_find", stat("Magic Find"),
 			"pet_luck", stat("Pet Luck"));
+	// only the colon form "Zombie Slayer: LVL 3" (Slayer menu); the rewards menu names its items
+	// "Zombie Slayer LVL 1" ... "LVL 7" for every level, reached or not
 	private static final Pattern SLAYER = Pattern.compile(
-			"\\b(Zombie|Spider|Wolf|Enderman|Blaze|Vampire) Slayer(?::\\s*|\\s+)(?:LVL|Lvl|Level)\\s*([0-9]+|[IVX]+)\\b");
+			"\\b(Zombie|Spider|Wolf|Enderman|Blaze|Vampire) Slayer:\\s*(?:LVL|Lvl|Level)\\s*([0-9]+|[IVX]+)\\b");
+	// an item's own Magic Find line: "Magic Find: +20 (+30.8)" - the bracket is the dungeon value
+	private static final Pattern ITEM_MF = Pattern.compile("^Magic Find:\\s*\\+" + NUM);
 	private static final Pattern TIERED = Pattern.compile("^(.+?) ([IVXLC]+)$");
 
 	private static Pattern stat(String name) {
@@ -56,6 +60,27 @@ public final class MagicGrindParse {
 				if (lvl >= 0 && lvl <= 12) out.put(m.group(1).toLowerCase(Locale.ROOT), lvl);
 			}
 		}
+	}
+
+	/** The Magic Find an item itself gives (its "Magic Find: +20" lore line), if any. */
+	public static OptionalDouble itemMagicFind(List<String> lore) {
+		for (String line : lore) {
+			Matcher m = ITEM_MF.matcher(line.trim());
+			if (m.find()) {
+				try {
+					return OptionalDouble.of(Double.parseDouble(m.group(1).replace(",", "")));
+				} catch (NumberFormatException ignored) {
+					return OptionalDouble.empty();
+				}
+			}
+		}
+		return OptionalDouble.empty();
+	}
+
+	/** A weapon or tool you hit with: has a "Damage:" stat line. */
+	public static boolean isWeapon(List<String> lore) {
+		for (String line : lore) if (line.trim().startsWith("Damage:")) return true;
+		return false;
 	}
 
 	/** A Bestiary mob item named "Ghost XX" -> ("Ghost", 20); null for anything else. */
