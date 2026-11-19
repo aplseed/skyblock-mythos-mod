@@ -52,9 +52,11 @@ class MagicGrindParseTest {
 	@Test
 	void readsStatsBreakdownDump() {
 		// "Your Stats Breakdown" (real dump): icons are stripped, lines keep a leading space
-		List<String> lines = List.of("Miscellaneous Stats", " Speed 400", " Magic Find 45", " Pet Luck 72", "Flat: +45", "Stat Cap: 500 Magic Find");
+		List<String> lines = List.of("Miscellaneous Stats", " Speed 400", " Magic Find 45", " Pet Luck 72", " Tracking 5.5",
+				"Flat: +45", "Stat Cap: 500 Magic Find", "You are 5.5% more likely to find ", "Elusive mobs.");
 		assertEquals(45.0, MagicGrindParse.stat(lines, "magic_find").getAsDouble());
 		assertEquals(72.0, MagicGrindParse.stat(lines, "pet_luck").getAsDouble());
+		assertEquals(5.5, MagicGrindParse.stat(lines, "tracking").getAsDouble());
 	}
 
 	@Test

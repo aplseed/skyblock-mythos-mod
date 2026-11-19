@@ -20,7 +20,8 @@ public final class MagicGrindParse {
 	private static final String NUM = "([0-9][0-9,]*(?:\\.[0-9]+)?)";
 	private static final Map<String, Pattern> STAT = Map.of(
 			"magic_find", stat("Magic Find"),
-			"pet_luck", stat("Pet Luck"));
+			"pet_luck", stat("Pet Luck"),
+			"tracking", stat("Tracking"));
 	// only the colon form "Zombie Slayer: LVL 3" (Slayer menu); the rewards menu names its items
 	// "Zombie Slayer LVL 1" ... "LVL 7" for every level, reached or not
 	private static final Pattern SLAYER = Pattern.compile(
