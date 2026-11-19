@@ -36,14 +36,43 @@ class MagicGrindParseTest {
 	@Test
 	void readsSlayerLevels() {
 		Map<String, Integer> out = new TreeMap<>();
-		MagicGrindParse.slayers(List.of("Zombie Slayer: LVL 9", "Wolf Slayer LVL VII", "Requires Spider Slayer 7", "Spider Slayer 7"), out);
-		assertEquals(Map.of("zombie", 9, "wolf", 7), out);
+		MagicGrindParse.slayers(List.of("Zombie Slayer: LVL 3", "Wolf Slayer: LVL VII", "Requires Spider Slayer 7", "Spider Slayer 7"), out);
+		assertEquals(Map.of("zombie", 3, "wolf", 7), out);
+	}
+
+	@Test
+	void slayerRewardsMenuIsNotALevel() {
+		// "Zombie Slayer LVL Rewards" lists every level as an item name, reached or not (real dump)
+		Map<String, Integer> out = new TreeMap<>();
+		MagicGrindParse.slayers(List.of("Zombie Slayer LVL 1", "+1 Magic Find on Revenant Horror", "Rewards claimed!",
+				"Zombie Slayer LVL 4", "Level not reached!", "Zombie Slayer LVL 7", "Zombie Slayer LVL", "Current LVL: 3"), out);
+		assertTrue(out.isEmpty());
+	}
+
+	@Test
+	void readsStatsBreakdownDump() {
+		// "Your Stats Breakdown" (real dump): icons are stripped, lines keep a leading space
+		List<String> lines = List.of("Miscellaneous Stats", " Speed 400", " Magic Find 45", " Pet Luck 72", "Flat: +45", "Stat Cap: 500 Magic Find");
+		assertEquals(45.0, MagicGrindParse.stat(lines, "magic_find").getAsDouble());
+		assertEquals(72.0, MagicGrindParse.stat(lines, "pet_luck").getAsDouble());
+	}
+
+	@Test
+	void itemMagicFind() {
+		List<String> midas = List.of("Gear Score: 1257 (3643)", "Damage: +570.36 (+30) (+90) (+1,852.71)", "Magic Find: +20 (+30.8)");
+		assertEquals(20.0, MagicGrindParse.itemMagicFind(midas).getAsDouble());
+		assertTrue(MagicGrindParse.isWeapon(midas));
+		assertTrue(MagicGrindParse.itemMagicFind(List.of("Damage: +285", "Strength: +265")).isEmpty());
+		assertFalse(MagicGrindParse.isWeapon(List.of("Use on a pet to consume an Ultimate")));
 	}
 
 	@Test
 	void readsBestiaryTiers() {
 		assertEquals(Map.entry("Ghost", 20), MagicGrindParse.bestiaryTier("Ghost XX"));
 		assertEquals(Map.entry("Lord Jawbus", 4), MagicGrindParse.bestiaryTier("Lord Jawbus IV"));
+		assertEquals(Map.entry("Goblin Raiders", 15), MagicGrindParse.bestiaryTier("Goblin Raiders XV"));
+		assertNull(MagicGrindParse.bestiaryTier("Littlefoot"));   // tier 0: no numeral yet
+		assertNull(MagicGrindParse.bestiaryTier("Bestiary Milestone CXXIII"));
 		assertNull(MagicGrindParse.bestiaryTier("Dwarven Mines"));
 		assertNull(MagicGrindParse.bestiaryTier("Bestiary Milestone X"));
 	}

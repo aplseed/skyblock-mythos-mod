@@ -26,6 +26,9 @@ public final class MagicGrindSync implements MenuFeature {
 	private static final long MIN_GAP_MS = 10_000, HEARTBEAT_MS = 5 * 60_000;
 
 	private static Double magicFind, petLuck, riftMagicFind;
+	/** Magic Find on the weapon in hand while playing, and on whatever was in hand when the stats were read. */
+	private static Double weaponMf, heldAtRead;
+	private static String weaponName = "";
 	private static final Map<String, Integer> SLAYERS = new TreeMap<>();
 	private static final Map<String, Integer> BESTIARY = new TreeMap<>();
 	private static boolean dirty;
@@ -54,7 +57,14 @@ public final class MagicGrindSync implements MenuFeature {
 			all.addAll(e.lore());
 		}
 		boolean rift = MagicGrindParse.inRift(TabList.lines());
-		readHere += stat(all, "magic_find", rift);
+		int mfRead = stat(all, "magic_find", rift);
+		if (mfRead > 0 && !rift) {
+			// the stats menu counts the item in your hand; remember it so the weapon isn't counted twice
+			double held = heldMagicFind();
+			if (heldAtRead == null || heldAtRead != held) dirty = true;
+			heldAtRead = held;
+		}
+		readHere += mfRead;
 		readHere += stat(all, "pet_luck", rift);
 		if (menu.title.contains("Slayer")) {
 			Map<String, Integer> found = new TreeMap<>();
@@ -79,6 +89,7 @@ public final class MagicGrindSync implements MenuFeature {
 		panel.header("MagicGrind", MagicGrindClient.configured() ? MagicGrindClient.status() : "not set up");
 		if (magicFind != null) panel.kv("Magic Find", dev.aplseed.mythos.util.Fmt.full(magicFind), Panel.PURPLE);
 		if (petLuck != null) panel.kv("Pet Luck", dev.aplseed.mythos.util.Fmt.full(petLuck), Panel.PURPLE);
+		if (heldAtRead != null && heldAtRead > 0) panel.kv("of which held item", dev.aplseed.mythos.util.Fmt.full(heldAtRead), Panel.GRAY);
 		if (!SLAYERS.isEmpty()) panel.kv("Slayer levels read", Integer.toString(SLAYERS.size()), Panel.WHITE);
 		if (!BESTIARY.isEmpty()) panel.kv("Bestiary families read", Integer.toString(BESTIARY.size()), Panel.WHITE);
 		if (menu.title.startsWith("Bestiary")) panel.line("Open each island's page once to send its tiers", Panel.DARK);
@@ -112,6 +123,7 @@ public final class MagicGrindSync implements MenuFeature {
 	/** Every client tick: read the tab list now and then, and send when something changed. */
 	public static void tick() {
 		if (!Mythos.config().magicgrind || !Mythos.active()) return;
+		if (ticks % 20 == 0 && Minecraft.getInstance().gui.screen() == null) readWeapon();
 		if (++ticks % 100 == 0) {
 			List<String> tab = TabList.lines();
 			boolean rift = MagicGrindParse.inRift(tab);
@@ -119,13 +131,35 @@ public final class MagicGrindSync implements MenuFeature {
 			stat(tab, "pet_luck", rift);
 		}
 		long now = System.currentTimeMillis();
-		boolean have = magicFind != null || petLuck != null || riftMagicFind != null || !SLAYERS.isEmpty() || !BESTIARY.isEmpty();
+		boolean have = magicFind != null || petLuck != null || weaponMf != null || riftMagicFind != null || !SLAYERS.isEmpty() || !BESTIARY.isEmpty();
 		if (!have || !MagicGrindClient.configured()) return;
 		if ((dirty && now - lastSent > MIN_GAP_MS) || now - lastSent > HEARTBEAT_MS) {
 			dirty = false;
 			lastSent = now;
 			MagicGrindClient.send(payload());
 		}
+	}
+
+	private static double heldMagicFind() {
+		var player = Minecraft.getInstance().player;
+		if (player == null) return 0;
+		return MagicGrindParse.itemMagicFind(dev.aplseed.mythos.util.Items.lore(player.getMainHandItem())).orElse(0);
+	}
+
+	/** The weapon you're holding while playing (not in a menu): its own Magic Find line, 0 if it has none. */
+	private static void readWeapon() {
+		var player = Minecraft.getInstance().player;
+		if (player == null) return;
+		var stack = player.getMainHandItem();
+		if (stack.isEmpty()) return;
+		List<String> lore = dev.aplseed.mythos.util.Items.lore(stack);
+		OptionalDouble mf = MagicGrindParse.itemMagicFind(lore);
+		if (mf.isEmpty() && !MagicGrindParse.isWeapon(lore)) return;   // tools, menus, food: keep the last weapon
+		double v = mf.orElse(0);
+		String name = dev.aplseed.mythos.util.Items.name(stack);
+		if (weaponMf == null || weaponMf != v || !name.equals(weaponName)) dirty = true;
+		weaponMf = v;
+		weaponName = name;
 	}
 
 	/** Forces the next tick to send (after the address or key changed). */
@@ -141,6 +175,11 @@ public final class MagicGrindSync implements MenuFeature {
 		if (magicFind != null) j.addProperty("base_mf", magicFind);
 		if (petLuck != null) j.addProperty("pet_luck", petLuck);
 		if (riftMagicFind != null) j.addProperty("rift_mf", riftMagicFind);
+		if (heldAtRead != null) j.addProperty("held_mf_at_read", heldAtRead);
+		if (weaponMf != null) {
+			j.addProperty("weapon_mf", weaponMf);
+			j.addProperty("weapon_name", weaponName.replaceAll("[^\\p{L}\\p{N} '-]", "").trim());
+		}
 		if (!SLAYERS.isEmpty()) {
 			JsonObject s = new JsonObject();
 			SLAYERS.forEach(s::addProperty);
