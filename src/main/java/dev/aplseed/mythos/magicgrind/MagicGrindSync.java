@@ -25,7 +25,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 public final class MagicGrindSync implements MenuFeature {
 	private static final long MIN_GAP_MS = 10_000, HEARTBEAT_MS = 5 * 60_000;
 
-	private static Double magicFind, petLuck, riftMagicFind;
+	private static Double magicFind, petLuck, riftMagicFind, tracking;
 	/** Magic Find on the weapon in hand while playing, and on whatever was in hand when the stats were read. */
 	private static Double weaponMf, heldAtRead;
 	private static String weaponName = "";
@@ -66,6 +66,7 @@ public final class MagicGrindSync implements MenuFeature {
 		}
 		readHere += mfRead;
 		readHere += stat(all, "pet_luck", rift);
+		readHere += stat(all, "tracking", rift);
 		if (menu.title.contains("Slayer")) {
 			Map<String, Integer> found = new TreeMap<>();
 			MagicGrindParse.slayers(all, found);
@@ -99,7 +100,10 @@ public final class MagicGrindSync implements MenuFeature {
 		OptionalDouble v = MagicGrindParse.stat(lines, which);
 		if (v.isEmpty()) return 0;
 		double d = v.getAsDouble();
-		if (which.equals("pet_luck")) {
+		if (which.equals("tracking")) {
+			if (tracking == null || tracking != d) dirty = true;
+			tracking = d;
+		} else if (which.equals("pet_luck")) {
 			if (petLuck == null || petLuck != d) dirty = true;
 			petLuck = d;
 		} else if (rift) {
@@ -129,6 +133,7 @@ public final class MagicGrindSync implements MenuFeature {
 			boolean rift = MagicGrindParse.inRift(tab);
 			stat(tab, "magic_find", rift);
 			stat(tab, "pet_luck", rift);
+			stat(tab, "tracking", rift);
 		}
 		long now = System.currentTimeMillis();
 		boolean have = magicFind != null || petLuck != null || weaponMf != null || riftMagicFind != null || !SLAYERS.isEmpty() || !BESTIARY.isEmpty();
@@ -175,6 +180,7 @@ public final class MagicGrindSync implements MenuFeature {
 		if (magicFind != null) j.addProperty("base_mf", magicFind);
 		if (petLuck != null) j.addProperty("pet_luck", petLuck);
 		if (riftMagicFind != null) j.addProperty("rift_mf", riftMagicFind);
+		if (tracking != null) j.addProperty("tracking", tracking);
 		if (heldAtRead != null) j.addProperty("held_mf_at_read", heldAtRead);
 		if (weaponMf != null) {
 			j.addProperty("weapon_mf", weaponMf);
