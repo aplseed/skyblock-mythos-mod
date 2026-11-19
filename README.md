@@ -19,6 +19,7 @@ The one part that needs no server is the **accessory calculator**: it reads your
 | **Election panel** | Election booth | For every candidate, the items that rose or fell in all their past terms (measured by the server). Where nothing has been measured yet, it shows what their perks are expected to do. |
 | **Sell warnings** | Chat + toast | When the engine flags something you hold, you're told once. The warning is acknowledged for the mod only, so the web toast still shows. |
 | **Accessory calculator** | Accessory Bag, `/myth acc` | Scans the bag, finds spare accessories, lists what's missing and plans a budget. See [below](#accessory-calculator). |
+| **MagicGrind sync** | SkyBlock Menu, stats menus, Slayer menus, Bestiary, tab list | Reads your Magic Find, Pet Luck (and Rift Magic Find in the Rift), slayer levels and Bestiary tiers, and sends them to a [MagicGrind](https://github.com/aplseed/skyblock-magicgrind) server, which ranks every Magic Find grind at your stats. MagicGrind is separate from skyblock-mythos: set its address and pairing key under `/myth` → Overview → MagicGrind. |
 | **Shard sessions** *(experimental)* | HUD | Shards caught (read from chat), their net value, coins per hour, and your main shard's catch rate compared with the rate saved for it on the Shard Farm page. |
 
 Panels sit beside the menu on whichever side has room, never over it, and scroll with the mouse wheel when they're taller than the screen.

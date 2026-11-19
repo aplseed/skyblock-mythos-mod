@@ -68,7 +68,8 @@ public final class Mythos implements ClientModInitializer {
 			new Feature("forge", "Forge advisor", "Recipes ranked by profit per slot-hour", c -> c.forgeAdvisor, (c, v) -> c.forgeAdvisor = v),
 			new Feature("election", "Election panel", "What each candidate does to prices", c -> c.electionPanel, (c, v) -> c.electionPanel = v),
 			new Feature("warnings", "Sell warnings", "Chat and toast when a holding is flagged", c -> c.sellWarnings, (c, v) -> c.sellWarnings = v),
-			new Feature("shards", "Shard sessions", "Catch-rate HUD while hunting", c -> c.shardTracker, (c, v) -> c.shardTracker = v));
+			new Feature("shards", "Shard sessions", "Catch-rate HUD while hunting", c -> c.shardTracker, (c, v) -> c.shardTracker = v),
+			new Feature("magicgrind", "MagicGrind sync", "Send Magic Find, slayers, bestiary to MagicGrind", c -> c.magicgrind, (c, v) -> c.magicgrind = v));
 
 	public static Feature feature(String id) {
 		for (Feature f : FEATURES) if (f.id().equals(id)) return f;
@@ -171,6 +172,27 @@ public final class Mythos implements ClientModInitializer {
 		return null;
 	}
 
+	/** Stores MagicGrind's address and pairing key; returns what's wrong, or null if saved. */
+	public static String setMagicGrind(String url, String key) {
+		String u = url.trim().replaceAll("/+$", "");
+		if (!u.isEmpty()) {
+			try {
+				URI parsed = URI.create(u);
+				String scheme = parsed.getScheme();
+				if (scheme == null || !(scheme.equals("http") || scheme.equals("https")) || parsed.getHost() == null) {
+					return "The MagicGrind address must look like http://192.168.1.10:8420";
+				}
+			} catch (IllegalArgumentException e) {
+				return "The MagicGrind address must look like http://192.168.1.10:8420";
+			}
+		}
+		config.magicgrindUrl = u;
+		config.magicgrindKey = key.trim().toUpperCase(Locale.ROOT);
+		config.save();
+		dev.aplseed.mythos.magicgrind.MagicGrindSync.resend();
+		return null;
+	}
+
 	public static void toggleOverlays() {
 		config.overlays = !config.overlays;
 		config.save();
@@ -193,6 +215,7 @@ public final class Mythos implements ClientModInitializer {
 		MenuOverlays.add(new ElectionPanel());
 		MenuOverlays.add(new BagScanner());
 		MenuOverlays.add(new CollectionScanner());
+		MenuOverlays.add(new dev.aplseed.mythos.magicgrind.MagicGrindSync());
 		MenuOverlays.init();
 
 		Commands.register();
@@ -209,6 +232,7 @@ public final class Mythos implements ClientModInitializer {
 			if (++widgetTicks % 100 == 0 && config.accessories && active()) dev.aplseed.mythos.acc.Bag.readCounts(dev.aplseed.mythos.util.TabList.lines());
 			SellWarnings.tick();
 			ShardTracker.tick();
+			dev.aplseed.mythos.magicgrind.MagicGrindSync.tick();
 		});
 		ClientPlayConnectionEvents.JOIN.register((handler, sender, mc) -> {
 			if (!active()) return;
