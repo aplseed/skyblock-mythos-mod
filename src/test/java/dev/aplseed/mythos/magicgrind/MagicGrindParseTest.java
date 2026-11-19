@@ -119,6 +119,8 @@ class MagicGrindParseTest {
 		var sacks = MagicGrindParse.sackItems("Added items:\n  +40 Rough Jade Gemstone (Gemstone Sack)\n  +1,280 Rough Amber Gemstone (Gemstone Sack)\n\nThis message can be disabled in the settings.");
 		assertEquals(40, sacks.get("Rough Jade Gemstone"));
 		assertEquals(1280, sacks.get("Rough Amber Gemstone"));
+		// real names carry an icon glyph
+		assertEquals(40, MagicGrindParse.sackItems("+40 \uE053 Rough Jade Gemstone (Gemstone Sack)").get("Rough Jade Gemstone"));
 		// real Bestiary lore
 		assertEquals(2664, MagicGrindParse.bestiaryKills(List.of("Mob Types:  Arcane,  Subterranean", "", "It is hard to find that which you", "cannot see.", "", "Kills: 2,664", "Deaths: 9")));
 	}
