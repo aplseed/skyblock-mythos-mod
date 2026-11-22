@@ -1,6 +1,7 @@
 package dev.aplseed.mythos.magicgrind;
 
 import java.util.List;
+import java.util.Set;
 import java.util.Locale;
 import java.util.Map;
 import java.util.OptionalDouble;
@@ -190,6 +191,22 @@ public final class MagicGrindParse {
 		if (!m.find()) return null;
 		int tier = roman(m.group(2));
 		return tier > 0 && tier <= 5 ? new SlayerQuest(m.group(1), tier, false) : null;
+	}
+
+	// where each slayer is done: scoreboard zones, and the islands they're on (when only the tab's "Area:" is known)
+	private static final Map<String, Set<String>> SLAYER_ZONES = Map.of(
+			"wolf", Set.of("Ruins", "Howling Cave"), "zombie", Set.of("Crypts"));
+	private static final Map<String, Set<String>> SLAYER_ISLANDS = Map.of(
+			"wolf", Set.of("Hub", "The Park"), "zombie", Set.of("Hub"));
+
+	/**
+	 * Whether you're where `slayer` is done: the scoreboard zone if it's known, else the island. Slayers without a
+	 * list (spider, enderman, blaze) count anywhere.
+	 */
+	public static boolean slayerArea(String slayer, String zone, String island) {
+		if (slayer == null || !SLAYER_ZONES.containsKey(slayer)) return true;
+		if (zone != null && !zone.isEmpty()) return SLAYER_ZONES.get(slayer).contains(zone);
+		return island == null || island.isEmpty() || SLAYER_ISLANDS.get(slayer).contains(island);
 	}
 
 	/** Slayer key MagicGrind uses for a boss name ("Sven Packmaster" -> "wolf"). */

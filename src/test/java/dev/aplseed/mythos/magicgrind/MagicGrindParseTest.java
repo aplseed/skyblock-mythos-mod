@@ -128,6 +128,13 @@ class MagicGrindParseTest {
 		var crypts = List.of("Autumn 29th", "9:40am", " \uE067 Crypts", "Purse: 245,342,336 (+559)", "Bits: 103,814",
 				"Slayer Quest", "Revenant Horror V", "Boss slain!", "Spooky Festival 51:52", "www.hypixel.net");
 		assertEquals("Crypts", MagicGrindParse.location(crypts));
+		assertTrue(MagicGrindParse.slayerArea("zombie", "Crypts", "Hub"));
+		assertFalse(MagicGrindParse.slayerArea("zombie", "The Mist", "Dwarven Mines"));
+		assertFalse(MagicGrindParse.slayerArea("zombie", "", "Dwarven Mines"));
+		assertTrue(MagicGrindParse.slayerArea("zombie", "", "Hub"));
+		assertTrue(MagicGrindParse.slayerArea("wolf", "Howling Cave", "The Park"));
+		assertFalse(MagicGrindParse.slayerArea("wolf", "Crypts", "Hub"));
+		assertTrue(MagicGrindParse.slayerArea("enderman", "Zealot Bruiser Hideout", "The End"));
 		assertEquals(5, MagicGrindParse.slayerQuest(crypts).tier());
 		assertEquals("Revenant Horror", MagicGrindParse.slayerQuest(crypts).boss());
 		assertEquals("Crypt Ghoul", MagicGrindParse.mobName("[Lv33] \uE084 Crypt Ghoul 1,600/2,000\u2764"));

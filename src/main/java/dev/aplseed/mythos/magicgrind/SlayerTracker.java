@@ -51,6 +51,7 @@ public final class SlayerTracker {
 			"Voidgloom Seraph", "Inferno Demonlord", "Riftstalker Bloodfiend", "Atoned Horror");
 
 	private static String id, slayer, area = "";
+	private static boolean inArea = true;   // in a zone where the slayer is done (Crypts, Ruins, Howling Cave)
 	private static long started, activeMs, lastTick, lastActivity, lastKill, lastSent, lastScreenOpen, questStartAt, purseDropAt, lastSlainAt;
 	private static int ticks, failed, costSeen;
 	private static double coins, cost, purseDrop;
@@ -114,7 +115,7 @@ public final class SlayerTracker {
 	public static String debug() {
 		return "session " + (id == null ? "none" : slayer + " " + (activeMs / 1000) + "s active")
 				+ " | quest " + (quest == null ? "none" : quest.boss() + " T" + quest.tier() + (quest.bossUp() ? " boss up" : ""))
-				+ " | area '" + area + "'"
+				+ " | area '" + area + "'" + (inArea ? "" : " (not a " + slayer + " slayer area: paused)")
 				+ "\nbosses " + BOSS_KILLS + " quests " + QUESTS + " failed " + failed
 				+ "\nmobs named " + debugNamed + ", tracked now " + NAMES.size() + ", died " + debugDeaths
 				+ ", too far/not hit " + debugFar + ", vanished right after your hit " + debugVanishedHit
@@ -155,7 +156,7 @@ public final class SlayerTracker {
 
 	/** You hit something: remember it so its death counts as your kill. */
 	public static void onAttack(Entity target) {
-		if (!on() || target == null || !isMob(target) || (quest == null && id == null)) return;
+		if (!on() || !inArea || target == null || !isMob(target) || (quest == null && id == null)) return;
 		long now = System.currentTimeMillis();
 		HIT.put(target.getId(), now);
 		lastActivity = now;
@@ -275,14 +276,16 @@ public final class SlayerTracker {
 			quest = MagicGrindParse.slayerQuest(sb);
 			// the Rift's slayer isn't tracked (MagicGrind leaves the Rift out)
 			if (quest != null && MagicGrindParse.slayerOf(quest.boss()).equals("vampire")) quest = null;
-			area = MagicGrindParse.location(sb);
-			if (area.isEmpty()) {
-				for (String t : dev.aplseed.mythos.util.TabList.lines()) {
-					String c = MagicGrindParse.clean(t);
-					if (c.startsWith("Area:")) area = c.substring(5).trim();
-				}
+			String zone = MagicGrindParse.location(sb), island = "";
+			for (String t : dev.aplseed.mythos.util.TabList.lines()) {
+				String c = MagicGrindParse.clean(t);
+				if (c.startsWith("Area:")) island = c.substring(5).trim();
 			}
-			if (quest != null) {
+			area = zone.isEmpty() ? island : zone;
+			// a quest held elsewhere (Ghosts in the Mist with a Revenant quest) isn't slaying: pause there
+			String which0 = quest != null ? MagicGrindParse.slayerOf(quest.boss()) : slayer;
+			inArea = MagicGrindParse.slayerArea(which0, zone, island);
+			if (quest != null && inArea) {
 				String which = MagicGrindParse.slayerOf(quest.boss());
 				if (id == null || now - lastActivity > NEW_SESSION_MS) start(now, which);
 				else if (slayer == null) slayer = which;
@@ -310,7 +313,7 @@ public final class SlayerTracker {
 			reset();
 			return;
 		}
-		boolean active = now - lastActivity < IDLE_MS;
+		boolean active = inArea && now - lastActivity < IDLE_MS;
 		if (active) {
 			activeMs += dt;
 			if (!area.isEmpty()) AREAS.merge(area, dt / 1000.0, Double::sum);
@@ -318,7 +321,7 @@ public final class SlayerTracker {
 
 		// name tags of mobs around you, so deaths can be told apart (Old Wolf, Pack Enforcer...); every 10 ticks,
 		// and every tick for a mob that's dying before it was named (fast AoE kills)
-		if (quest != null || active) {
+		if (inArea && (quest != null || active)) {
 			boolean full = ticks % 10 == 0;
 			for (Entity e : mc.level.entitiesForRendering()) {
 				if (!isMob(e) || NAMES.containsKey(e.getId()) || COUNTED.contains(e.getId())) continue;
@@ -474,7 +477,7 @@ public final class SlayerTracker {
 	}
 
 	public static void renderHud(GuiGraphicsExtractor g) {
-		if (!on() || id == null || slayer == null || (quest == null && System.currentTimeMillis() - lastActivity > IDLE_MS)) return;
+		if (!on() || id == null || slayer == null || !inArea || (quest == null && System.currentTimeMillis() - lastActivity > IDLE_MS)) return;
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.gui.hud.isHidden()) return;
 		Font font = mc.font;
