@@ -234,6 +234,8 @@ public final class Mythos implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			while (OVERLAY_KEY.consumeClick()) toggleOverlays();
 			while (SCREEN_KEY.consumeClick()) open(null);
+			// F8 over a menu dumps the menu (MenuOverlays); with nothing open it dumps scoreboard, chat and name tags
+			while (DUMP_KEY.consumeClick()) if (mc.gui.screen() == null) dev.aplseed.mythos.menu.WorldDump.dump();
 			if (screenRequested) {
 				screenRequested = false;
 				mc.gui.setScreen(new MythosScreen(pendingScreen));

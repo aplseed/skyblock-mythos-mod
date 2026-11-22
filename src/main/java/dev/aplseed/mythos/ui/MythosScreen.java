@@ -468,7 +468,7 @@ public final class MythosScreen extends Screen {
 
 		ry = section("General", null, rx, ry + 6, colW);
 		ry = toggle("Only on Hypixel", "Stay idle on every other server", c.onlyOnHypixel, rx, ry, colW, () -> set(() -> c.onlyOnHypixel = !c.onlyOnHypixel));
-		ry = para("Keys (Options > Controls > Mythos): open this window, dump the open menu (F8), toggle menu panels.", rx, ry + 2, colW, Theme.FAINT);
+		ry = para("Keys (Options > Controls > Mythos): open this window, dump the open menu (F8; with no menu open it dumps the scoreboard, chat and name tags), toggle menu panels.", rx, ry + 2, colW, Theme.FAINT);
 		return Math.max(ly, ry);
 	}
 
