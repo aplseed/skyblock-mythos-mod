@@ -151,6 +151,7 @@ public final class MagicGrindParse {
 	/** The slayer quest on the scoreboard: "Slayer Quest" followed by "Sven Packmaster IV". */
 	public record SlayerQuest(String boss, int tier, boolean bossUp) {}
 
+	private static final Pattern ATONED_HORROR = Pattern.compile("\\bAtoned Horror\\b");
 	private static final Pattern QUEST_BOSS = Pattern.compile(
 			"(Revenant Horror|Tarantula Broodfather|Sven Packmaster|Voidgloom Seraph|Inferno Demonlord|Riftstalker Bloodfiend)\\s+([IVX]+)\\b");
 
@@ -178,9 +179,13 @@ public final class MagicGrindParse {
 		return null;
 	}
 
-	/** "Sven Packmaster IV" (scoreboard line or the boss's name tag) -> (Sven Packmaster, 4), else null. */
+	/**
+	 * "Sven Packmaster IV" (scoreboard line or the boss's name tag) -> (Sven Packmaster, 4), else null.
+	 * The tier 5 Revenant's tag is "Atoned Horror" (no numeral); its minibosses are "Atoned Revenant/Champion".
+	 */
 	public static SlayerQuest bossTag(String text) {
 		if (text == null) return null;
+		if (ATONED_HORROR.matcher(text).find()) return new SlayerQuest("Revenant Horror", 5, false);
 		Matcher m = QUEST_BOSS.matcher(text);
 		if (!m.find()) return null;
 		int tier = roman(m.group(2));

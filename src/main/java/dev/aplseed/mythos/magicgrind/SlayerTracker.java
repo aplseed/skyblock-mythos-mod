@@ -31,7 +31,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * Slayer profit tracker (Sven first): a session of slayer quests, sent to MagicGrind, which compares it with what
+ * Slayer profit tracker (Sven in the Ruins/Park, Revenant in the Crypts): a session of slayer quests, sent to MagicGrind, which compares it with what
  * it expected. Display-only: nothing is clicked or automated.
  *
  * <ul>
