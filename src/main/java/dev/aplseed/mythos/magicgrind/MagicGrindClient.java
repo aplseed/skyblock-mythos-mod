@@ -121,8 +121,8 @@ public final class MagicGrindClient {
 		}
 	}
 
-	/** Sends the Ghost tracker session; MagicGrind answers with actual vs expected for the HUD. */
-	public static void sendSession(JsonObject session) {
+	/** Sends a tracker session (Ghost or slayer); MagicGrind answers with actual vs expected for the HUD. */
+	public static void sendSession(JsonObject session, java.util.function.Consumer<JsonObject> answer) {
 		if (!configured()) return;
 		try {
 			HttpRequest req = request("/api/mod/session").header("Content-Type", "application/json")
@@ -130,7 +130,7 @@ public final class MagicGrindClient {
 			CLIENT.sendAsync(req, HttpResponse.BodyHandlers.ofString()).whenComplete((resp, err) -> {
 				if (err != null || resp.statusCode() != 200) return;
 				try {
-					GhostTracker.accept(JsonParser.parseString(resp.body()).getAsJsonObject());
+					answer.accept(JsonParser.parseString(resp.body()).getAsJsonObject());
 				} catch (Exception ignored) {
 					// keep the last summary
 				}
