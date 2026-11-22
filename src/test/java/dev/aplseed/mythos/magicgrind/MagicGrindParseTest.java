@@ -105,6 +105,11 @@ class MagicGrindParseTest {
 		assertEquals(false, q.bossUp());
 		assertEquals(true, MagicGrindParse.slayerQuest(List.of("Slayer Quest", "Sven Packmaster III", "Slay the boss!")).bossUp());
 		assertNull(MagicGrindParse.slayerQuest(List.of("Purse: 5", "\u23E3 Ruins")));
+		// emoji padding inside the line
+		assertEquals(4, MagicGrindParse.slayerQuest(List.of("Slayer Quest", "Sven Packmaster I\uD83C\uDF82V")).tier());
+		assertEquals("Ruins", MagicGrindParse.location(List.of(" \u23E3 Ru\uD83D\uDC7Dins")));
+		assertEquals(4, MagicGrindParse.bossTag("Sven Packmaster IV").tier());
+		assertNull(MagicGrindParse.bossTag("Sven Follower"));
 		assertEquals("wolf", MagicGrindParse.slayerOf(q.boss()));
 		assertEquals("Ruins", MagicGrindParse.location(List.of("11/22/26", " \u23E3 Ruins", "Purse: 5")));
 		assertEquals("Howling Cave", MagicGrindParse.location(List.of("\u23E3 Howling Cave")));

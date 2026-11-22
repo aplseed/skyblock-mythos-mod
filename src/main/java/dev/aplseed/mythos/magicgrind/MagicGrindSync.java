@@ -173,6 +173,7 @@ public final class MagicGrindSync implements MenuFeature {
 
 	/** A RARE DROP chat line: the game's own Magic Find for that drop. */
 	public static void onChat(net.minecraft.network.chat.Component message, boolean overlay) {
+		if (!overlay) dev.aplseed.mythos.menu.WorldDump.chat(dev.aplseed.mythos.util.Items.plain(message));
 		if (overlay || !Mythos.config().magicgrind || !Mythos.active()) return;
 		GhostTracker.onChat(message);
 		SlayerTracker.onChat(message);
