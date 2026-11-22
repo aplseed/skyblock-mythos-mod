@@ -214,6 +214,13 @@ public final class MagicGrindParse {
 			if (i < 0) continue;
 			return l.substring(i + 1).replaceAll("[^\\p{L}\\p{N} '-]", "").trim();
 		}
+		// newer scoreboards draw the icon with a resource-pack glyph: "<U+E067> Crypts"
+		for (String raw : scoreboard) {
+			String l = clean(raw);
+			if (l.isEmpty() || l.charAt(0) < '\uE000' || l.charAt(0) > '\uF8FF') continue;
+			String name = l.substring(1).trim();
+			if (name.matches("[\\p{L}][\\p{L}\\p{N} '-]{1,40}")) return name;
+		}
 		return "";
 	}
 

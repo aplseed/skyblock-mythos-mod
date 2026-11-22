@@ -124,6 +124,17 @@ class MagicGrindParseTest {
 		assertEquals("Ruins", MagicGrindParse.location(List.of("11/22/26", " \u23E3 Ruins", "Purse: 5")));
 		assertEquals("Howling Cave", MagicGrindParse.location(List.of("\u23E3 Howling Cave")));
 		assertEquals("", MagicGrindParse.location(List.of("Purse: 5")));
+		// real scoreboard from the Crypts (world dump): the icon is a private-use glyph
+		var crypts = List.of("Autumn 29th", "9:40am", " \uE067 Crypts", "Purse: 245,342,336 (+559)", "Bits: 103,814",
+				"Slayer Quest", "Revenant Horror V", "Boss slain!", "Spooky Festival 51:52", "www.hypixel.net");
+		assertEquals("Crypts", MagicGrindParse.location(crypts));
+		assertEquals(5, MagicGrindParse.slayerQuest(crypts).tier());
+		assertEquals("Revenant Horror", MagicGrindParse.slayerQuest(crypts).boss());
+		assertEquals("Crypt Ghoul", MagicGrindParse.mobName("[Lv33] \uE084 Crypt Ghoul 1,600/2,000\u2764"));
+		assertNull(MagicGrindParse.mobName("[Lv83] Ghoul"));    // your pet's tag has no health
+		var drop = MagicGrindParse.rareDrop("VERY RARE DROP! (Undead Catalyst) (+125\uE01A Magic Find)");
+		assertEquals("Undead Catalyst", drop.item());
+		assertEquals(125, drop.magicFind(), 1e-9);
 	}
 
 	@Test
