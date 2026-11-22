@@ -151,24 +151,45 @@ public final class MagicGrindParse {
 	/** The slayer quest on the scoreboard: "Slayer Quest" followed by "Sven Packmaster IV". */
 	public record SlayerQuest(String boss, int tier, boolean bossUp) {}
 
+	private static final Pattern ATONED_HORROR = Pattern.compile("\\bAtoned Horror\\b");
 	private static final Pattern QUEST_BOSS = Pattern.compile(
 			"(Revenant Horror|Tarantula Broodfather|Sven Packmaster|Voidgloom Seraph|Inferno Demonlord|Riftstalker Bloodfiend)\\s+([IVX]+)\\b");
 
+	/**
+	 * Hypixel pads scoreboard lines with emoji (the hidden part between a team's prefix and suffix), which can land
+	 * in the middle of the text: drop emoji and other symbols outside the Basic Multilingual Plane, and squeeze spaces.
+	 */
+	public static String clean(String line) {
+		StringBuilder out = new StringBuilder();
+		line.codePoints().forEach(cp -> {
+			if (cp > 0xFFFF || cp == 0x26BD || (cp >= 0xFE00 && cp <= 0xFE0F) || cp == 0x200D) return;
+			out.appendCodePoint(cp);
+		});
+		return out.toString().replaceAll("\\s+", " ").trim();
+	}
+
 	public static SlayerQuest slayerQuest(List<String> scoreboard) {
-		for (int i = 0; i < scoreboard.size(); i++) {
-			if (!scoreboard.get(i).contains("Slayer Quest")) continue;
-			for (int j = i + 1; j < Math.min(scoreboard.size(), i + 3); j++) {
-				Matcher m = QUEST_BOSS.matcher(scoreboard.get(j));
-				if (!m.find()) continue;
-				int tier = roman(m.group(2));
-				if (tier <= 0) return null;
-				boolean up = false;
-				for (int k = j + 1; k < Math.min(scoreboard.size(), j + 3); k++) up |= scoreboard.get(k).contains("Slay the boss");
-				return new SlayerQuest(m.group(1), tier, up);
-			}
-			return null;
+		for (int j = 0; j < scoreboard.size(); j++) {
+			SlayerQuest q = bossTag(clean(scoreboard.get(j)));
+			if (q == null) continue;
+			boolean up = false;
+			for (int k = j + 1; k < Math.min(scoreboard.size(), j + 3); k++) up |= clean(scoreboard.get(k)).contains("Slay the boss");
+			return new SlayerQuest(q.boss(), q.tier(), up);
 		}
 		return null;
+	}
+
+	/**
+	 * "Sven Packmaster IV" (scoreboard line or the boss's name tag) -> (Sven Packmaster, 4), else null.
+	 * The tier 5 Revenant's tag is "Atoned Horror" (no numeral); its minibosses are "Atoned Revenant/Champion".
+	 */
+	public static SlayerQuest bossTag(String text) {
+		if (text == null) return null;
+		if (ATONED_HORROR.matcher(text).find()) return new SlayerQuest("Revenant Horror", 5, false);
+		Matcher m = QUEST_BOSS.matcher(text);
+		if (!m.find()) return null;
+		int tier = roman(m.group(2));
+		return tier > 0 && tier <= 5 ? new SlayerQuest(m.group(1), tier, false) : null;
 	}
 
 	/** Slayer key MagicGrind uses for a boss name ("Sven Packmaster" -> "wolf"). */
@@ -186,8 +207,10 @@ public final class MagicGrindParse {
 
 	/** The scoreboard's location line ("⏣ Ruins") without the icon, or "". */
 	public static String location(List<String> scoreboard) {
-		for (String l : scoreboard) {
+		for (String raw : scoreboard) {
+			String l = clean(raw);
 			int i = l.indexOf('\u23E3');
+			if (i < 0) i = l.indexOf('\u0444');      // the Rift's icon
 			if (i < 0) continue;
 			return l.substring(i + 1).replaceAll("[^\\p{L}\\p{N} '-]", "").trim();
 		}

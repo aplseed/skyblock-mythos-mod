@@ -31,7 +31,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * Slayer profit tracker (Sven first): a session of slayer quests, sent to MagicGrind, which compares it with what
+ * Slayer profit tracker (Sven in the Ruins/Park, Revenant in the Crypts): a session of slayer quests, sent to MagicGrind, which compares it with what
  * it expected. Display-only: nothing is clicked or automated.
  *
  * <ul>
@@ -56,7 +56,7 @@ public final class SlayerTracker {
 	private static double coins, cost, purseDrop;
 	private static boolean dirty, questPending, costPending;
 	private static Double lastPurse;
-	private static MagicGrindParse.SlayerQuest quest, lastQuest;
+	private static MagicGrindParse.SlayerQuest quest, lastQuest, bossTag;
 	private static final Map<String, Integer> BOSS_KILLS = new TreeMap<>(), QUESTS = new TreeMap<>();
 	private static final Map<String, Integer> ITEMS = new TreeMap<>(), SACKS = new TreeMap<>();
 	private static final Map<String, int[]> MOBS = new TreeMap<>();
@@ -145,7 +145,21 @@ public final class SlayerTracker {
 		HIT.put(target.getId(), now);
 		lastActivity = now;
 		String n = nameOf(target);
-		if (n != null) NAMES.put(target.getId(), n);
+		if (n != null) {
+			NAMES.put(target.getId(), n);
+			// your boss's tag ("Sven Packmaster IV") gives the tier when the scoreboard can't be read
+			MagicGrindParse.SlayerQuest tag = MagicGrindParse.bossTag(n);
+			if (tag != null) {
+				bossTag = tag;
+				String which = MagicGrindParse.slayerOf(tag.boss());
+				if (id != null && slayer == null && !which.equals("vampire")) slayer = which;
+				if (questPending && quest == null) {
+					QUESTS.merge(Integer.toString(tag.tier()), 1, Integer::sum);
+					questPending = false;
+				}
+				dirty = true;
+			}
+		}
 		var player = Minecraft.getInstance().player;
 		if (player != null) weapon = Items.name(player.getMainHandItem());
 	}
@@ -154,7 +168,26 @@ public final class SlayerTracker {
 		if (!on()) return;
 		String text = Items.plain(message).trim();
 		long now = System.currentTimeMillis();
-		if (text.startsWith("SLAYER QUEST STARTED!")) {
+		// the quest messages come as one block with separator lines: look at every line
+		boolean started = false, slain = false, failedNow = false;
+		for (String raw : text.split("\\R")) {
+			String l = raw.trim();
+			started |= l.startsWith("SLAYER QUEST STARTED");
+			slain |= l.contains("SLAYER BOSS SLAIN");
+			failedNow |= l.startsWith("SLAYER QUEST FAILED");
+		}
+		if (slain && id != null) {
+			MagicGrindParse.SlayerQuest q = quest != null ? quest : bossTag != null ? bossTag : lastQuest;
+			if (q != null) BOSS_KILLS.merge(Integer.toString(q.tier()), 1, Integer::sum);
+			else BOSS_KILLS.merge("0", 1, Integer::sum);      // tier unknown: MagicGrind uses the session's main tier
+			lastActivity = lastKill = now;
+			dirty = true;
+		}
+		if (failedNow && id != null) {
+			failed++;
+			dirty = true;
+		}
+		if (started) {
 			if (id == null || now - lastActivity > NEW_SESSION_MS) start(now, slayer);
 			questPending = true;
 			questStartAt = now;
@@ -168,22 +201,8 @@ public final class SlayerTracker {
 				costPending = true;
 			}
 			dirty = true;
-			return;
 		}
-		if (id == null) return;
-		if (text.startsWith("NICE! SLAYER BOSS SLAIN!")) {
-			MagicGrindParse.SlayerQuest q = quest != null ? quest : lastQuest;
-			if (q != null) BOSS_KILLS.merge(Integer.toString(q.tier()), 1, Integer::sum);
-			lastActivity = lastKill = now;
-			dirty = true;
-			return;
-		}
-		if (text.startsWith("SLAYER QUEST FAILED!")) {
-			failed++;
-			dirty = true;
-			return;
-		}
-		if (now - lastActivity > IDLE_MS) return;
+		if (started || slain || failedNow || id == null || now - lastActivity > IDLE_MS) return;
 		if (text.startsWith("[Sacks]") && now - lastKill < 10_000) {
 			Set<String> hovers = new LinkedHashSet<>();
 			hovers(message, hovers);
@@ -191,8 +210,9 @@ public final class SlayerTracker {
 				for (Map.Entry<String, Integer> e : MagicGrindParse.sackItems(h).entrySet()) SACKS.merge(e.getKey(), e.getValue(), Integer::sum);
 			dirty = true;
 		}
-		MagicGrindParse.RareDrop d = MagicGrindParse.rareDrop(text);
-		if (d != null) {
+		for (String raw : text.split("\\R")) {
+			MagicGrindParse.RareDrop d = MagicGrindParse.rareDrop(raw);
+			if (d == null) continue;
 			JsonObject o = new JsonObject();
 			o.addProperty("item", d.item());
 			o.addProperty("mf", d.magicFind());
@@ -238,6 +258,12 @@ public final class SlayerTracker {
 			// the Rift's slayer isn't tracked (MagicGrind leaves the Rift out)
 			if (quest != null && MagicGrindParse.slayerOf(quest.boss()).equals("vampire")) quest = null;
 			area = MagicGrindParse.location(sb);
+			if (area.isEmpty()) {
+				for (String t : dev.aplseed.mythos.util.TabList.lines()) {
+					String c = MagicGrindParse.clean(t);
+					if (c.startsWith("Area:")) area = c.substring(5).trim();
+				}
+			}
 			if (quest != null) {
 				String which = MagicGrindParse.slayerOf(quest.boss());
 				if (id == null || now - lastActivity > NEW_SESSION_MS) start(now, which);
@@ -291,7 +317,7 @@ public final class SlayerTracker {
 			it.remove();
 			Long hit = HIT.remove(e.getId());
 			String name = n.getValue();
-			if (BOSSES.contains(name)) continue;          // bosses are counted from chat
+			if (MagicGrindParse.bossTag(name) != null || BOSSES.contains(name)) continue;   // bosses are counted from chat
 			boolean mine = hit != null && now - hit < 30_000;
 			boolean near = !mine && quest != null && e.distanceTo(mc.player) <= NEAR;
 			if (!mine && !near) continue;
@@ -415,7 +441,8 @@ public final class SlayerTracker {
 		List<String> lines = new ArrayList<>();
 		long min = activeMs / 60_000;
 		int bosses = BOSS_KILLS.values().stream().mapToInt(Integer::intValue).sum();
-		String boss = lastQuest != null ? lastQuest.boss() + " " + roman(lastQuest.tier()) : "Slayer";
+		MagicGrindParse.SlayerQuest shown = lastQuest != null ? lastQuest : bossTag;
+		String boss = shown != null ? shown.boss() + " " + roman(shown.tier()) : "Slayer";
 		lines.add(boss + "  " + bosses + (bosses == 1 ? " boss · " : " bosses · ") + (min >= 60 ? min / 60 + "h " + min % 60 + "m" : min + "m"));
 		JsonObject s = summary;
 		if (s != null && s.has("per_hour_actual") && !s.get("per_hour_actual").isJsonNull()) {

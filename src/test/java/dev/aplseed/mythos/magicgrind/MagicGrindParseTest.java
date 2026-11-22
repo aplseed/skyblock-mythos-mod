@@ -105,6 +105,21 @@ class MagicGrindParseTest {
 		assertEquals(false, q.bossUp());
 		assertEquals(true, MagicGrindParse.slayerQuest(List.of("Slayer Quest", "Sven Packmaster III", "Slay the boss!")).bossUp());
 		assertNull(MagicGrindParse.slayerQuest(List.of("Purse: 5", "\u23E3 Ruins")));
+		// emoji padding inside the line
+		assertEquals(4, MagicGrindParse.slayerQuest(List.of("Slayer Quest", "Sven Packmaster I\uD83C\uDF82V")).tier());
+		assertEquals("Ruins", MagicGrindParse.location(List.of(" \u23E3 Ru\uD83D\uDC7Dins")));
+		assertEquals(4, MagicGrindParse.bossTag("Sven Packmaster IV").tier());
+		assertNull(MagicGrindParse.bossTag("Sven Follower"));
+		// zombie slayer: the scoreboard names the tier, the T5 boss's tag doesn't
+		var rev = MagicGrindParse.slayerQuest(List.of("Slayer Quest", "Revenant Horror IV", "Slay the boss!"));
+		assertEquals("Revenant Horror", rev.boss());
+		assertEquals(4, rev.tier());
+		assertEquals("zombie", MagicGrindParse.slayerOf(rev.boss()));
+		assertEquals(5, MagicGrindParse.bossTag("Atoned Horror").tier());
+		assertEquals("Revenant Horror", MagicGrindParse.bossTag("Atoned Horror").boss());
+		assertNull(MagicGrindParse.bossTag("Atoned Revenant"));
+		assertNull(MagicGrindParse.bossTag("Atoned Champion"));
+		assertNull(MagicGrindParse.bossTag("Revenant Sycophant"));
 		assertEquals("wolf", MagicGrindParse.slayerOf(q.boss()));
 		assertEquals("Ruins", MagicGrindParse.location(List.of("11/22/26", " \u23E3 Ruins", "Purse: 5")));
 		assertEquals("Howling Cave", MagicGrindParse.location(List.of("\u23E3 Howling Cave")));
@@ -116,6 +131,8 @@ class MagicGrindParseTest {
 		assertEquals("Old Wolf", MagicGrindParse.mobName("[Lv67] Old Wolf 15k/15k\u2764"));
 		assertEquals("Pack Enforcer", MagicGrindParse.mobName("\u2620 Pack Enforcer 30,000/30,000\u2764"));
 		assertEquals("Sven Packmaster", MagicGrindParse.mobName("\u2620 Sven Packmaster 2M\u2764"));
+		assertEquals("Crypt Ghoul", MagicGrindParse.mobName("[Lv30] Crypt Ghoul 2,000/2,000\u2764"));
+		assertEquals("Atoned Horror", MagicGrindParse.mobName("\u2620 Atoned Horror 10M\u2764"));
 		assertEquals("Soul of the Alpha", MagicGrindParse.mobName("[Lv90] Soul of the Alpha 31k/31k\u2764"));
 		assertEquals("Wolf", MagicGrindParse.mobName("[Lv15] Wolf 250/250\u2764"));
 		assertNull(MagicGrindParse.mobName("Spawned by: aplseed"));
