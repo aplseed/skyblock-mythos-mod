@@ -227,6 +227,7 @@ public final class Mythos implements ClientModInitializer {
 				dev.aplseed.mythos.magicgrind.MagicGrindSync.onAttack();
 				dev.aplseed.mythos.magicgrind.GhostTracker.onAttack(entity);
 				dev.aplseed.mythos.magicgrind.KineticTracker.onAttack(entity);
+				dev.aplseed.mythos.magicgrind.SlayerTracker.onAttack(entity);
 			}
 			return net.minecraft.world.InteractionResult.PASS;
 		});
@@ -245,6 +246,7 @@ public final class Mythos implements ClientModInitializer {
 			dev.aplseed.mythos.magicgrind.MagicGrindSync.tick();
 			dev.aplseed.mythos.magicgrind.GhostTracker.tick();
 			dev.aplseed.mythos.magicgrind.KineticTracker.tick();
+			dev.aplseed.mythos.magicgrind.SlayerTracker.tick();
 		});
 		ClientPlayConnectionEvents.JOIN.register((handler, sender, mc) -> {
 			if (!active()) return;
@@ -253,5 +255,6 @@ public final class Mythos implements ClientModInitializer {
 		});
 		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(ID, "shard_session"), (g, delta) -> ShardTracker.renderHud(g));
 		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(ID, "ghost_tracker"), (g, delta) -> dev.aplseed.mythos.magicgrind.GhostTracker.renderHud(g));
+		HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(ID, "slayer_tracker"), (g, delta) -> dev.aplseed.mythos.magicgrind.SlayerTracker.renderHud(g));
 	}
 }

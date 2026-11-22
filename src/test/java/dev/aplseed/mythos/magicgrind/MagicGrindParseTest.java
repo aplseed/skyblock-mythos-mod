@@ -88,8 +88,39 @@ class MagicGrindParseTest {
 		var v = MagicGrindParse.rareDrop("VERY RARE DROP! 2x Plasma (+88.5 ✯ Magic Find)");
 		assertEquals("Plasma", v.item());
 		assertEquals(88.5, v.magicFind());
+		var w = MagicGrindParse.rareDrop("RARE DROP! (Hamster Wheel) (+150% \u272F Magic Find)");
+		assertEquals("Hamster Wheel", w.item());
+		assertEquals(150.0, w.magicFind());
+		assertEquals("Spirit Rune I", MagicGrindParse.rareDrop("VERY RARE DROP!  (\u25C6 Spirit Rune I) (+212 \u272F Magic Find)").item());
+		assertEquals("Hamster Wheel", MagicGrindParse.rareDrop("RARE DROP! (2x Hamster Wheel) (+150 Magic Find)").item());
 		assertNull(MagicGrindParse.rareDrop("RARE DROP! Sorrow"));
 		assertNull(MagicGrindParse.rareDrop("[MVP+] someone: RARE DROP! Sorrow (+999 Magic Find)"));
+	}
+
+	@Test
+	void slayerScoreboard() {
+		var q = MagicGrindParse.slayerQuest(List.of("Purse: 1,234", "", "Slayer Quest", "Sven Packmaster IV", "(1,234/2,000) Combat XP"));
+		assertEquals("Sven Packmaster", q.boss());
+		assertEquals(4, q.tier());
+		assertEquals(false, q.bossUp());
+		assertEquals(true, MagicGrindParse.slayerQuest(List.of("Slayer Quest", "Sven Packmaster III", "Slay the boss!")).bossUp());
+		assertNull(MagicGrindParse.slayerQuest(List.of("Purse: 5", "\u23E3 Ruins")));
+		assertEquals("wolf", MagicGrindParse.slayerOf(q.boss()));
+		assertEquals("Ruins", MagicGrindParse.location(List.of("11/22/26", " \u23E3 Ruins", "Purse: 5")));
+		assertEquals("Howling Cave", MagicGrindParse.location(List.of("\u23E3 Howling Cave")));
+		assertEquals("", MagicGrindParse.location(List.of("Purse: 5")));
+	}
+
+	@Test
+	void mobNameTags() {
+		assertEquals("Old Wolf", MagicGrindParse.mobName("[Lv67] Old Wolf 15k/15k\u2764"));
+		assertEquals("Pack Enforcer", MagicGrindParse.mobName("\u2620 Pack Enforcer 30,000/30,000\u2764"));
+		assertEquals("Sven Packmaster", MagicGrindParse.mobName("\u2620 Sven Packmaster 2M\u2764"));
+		assertEquals("Soul of the Alpha", MagicGrindParse.mobName("[Lv90] Soul of the Alpha 31k/31k\u2764"));
+		assertEquals("Wolf", MagicGrindParse.mobName("[Lv15] Wolf 250/250\u2764"));
+		assertNull(MagicGrindParse.mobName("Spawned by: aplseed"));
+		assertNull(MagicGrindParse.mobName("03:59"));
+		assertNull(MagicGrindParse.mobName("[Lv100] Wolf"));
 	}
 
 	@Test

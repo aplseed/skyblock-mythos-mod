@@ -210,7 +210,7 @@ public final class GhostTracker {
 		if (id != null && MagicGrindClient.configured() && (dirty && now - lastSent > SEND_MS || now - lastSent > 60_000)) {
 			dirty = false;
 			lastSent = now;
-			MagicGrindClient.sendSession(payload());
+			MagicGrindClient.sendSession(payload(), GhostTracker::accept);
 		}
 	}
 

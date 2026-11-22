@@ -136,11 +136,82 @@ public final class MagicGrindParse {
 	public static RareDrop rareDrop(String chat) {
 		Matcher m = RARE_DROP.matcher(chat.trim());
 		if (!m.find()) return null;
+		// slayer drops wrap the item in brackets: "RARE DROP! (Hamster Wheel) (+150% ✯ Magic Find)"
+		String item = m.group(2).trim();
+		if (item.startsWith("(") && item.endsWith(")")) item = item.substring(1, item.length() - 1).trim();
+		item = item.replaceFirst("^[0-9]+x\\s+", "").replaceAll("[\\uE000-\\uF8FF\u25C6]", "").trim();
+		if (item.isEmpty()) return null;
 		try {
-			return new RareDrop(m.group(2).trim(), Double.parseDouble(m.group(3).replace(",", "")));
+			return new RareDrop(item, Double.parseDouble(m.group(3).replace(",", "")));
 		} catch (NumberFormatException e) {
 			return null;
 		}
+	}
+
+	/** The slayer quest on the scoreboard: "Slayer Quest" followed by "Sven Packmaster IV". */
+	public record SlayerQuest(String boss, int tier, boolean bossUp) {}
+
+	private static final Pattern QUEST_BOSS = Pattern.compile(
+			"(Revenant Horror|Tarantula Broodfather|Sven Packmaster|Voidgloom Seraph|Inferno Demonlord|Riftstalker Bloodfiend)\\s+([IVX]+)\\b");
+
+	public static SlayerQuest slayerQuest(List<String> scoreboard) {
+		for (int i = 0; i < scoreboard.size(); i++) {
+			if (!scoreboard.get(i).contains("Slayer Quest")) continue;
+			for (int j = i + 1; j < Math.min(scoreboard.size(), i + 3); j++) {
+				Matcher m = QUEST_BOSS.matcher(scoreboard.get(j));
+				if (!m.find()) continue;
+				int tier = roman(m.group(2));
+				if (tier <= 0) return null;
+				boolean up = false;
+				for (int k = j + 1; k < Math.min(scoreboard.size(), j + 3); k++) up |= scoreboard.get(k).contains("Slay the boss");
+				return new SlayerQuest(m.group(1), tier, up);
+			}
+			return null;
+		}
+		return null;
+	}
+
+	/** Slayer key MagicGrind uses for a boss name ("Sven Packmaster" -> "wolf"). */
+	public static String slayerOf(String boss) {
+		return switch (boss) {
+			case "Revenant Horror" -> "zombie";
+			case "Tarantula Broodfather" -> "spider";
+			case "Sven Packmaster" -> "wolf";
+			case "Voidgloom Seraph" -> "enderman";
+			case "Inferno Demonlord" -> "blaze";
+			case "Riftstalker Bloodfiend" -> "vampire";
+			default -> "";
+		};
+	}
+
+	/** The scoreboard's location line ("⏣ Ruins") without the icon, or "". */
+	public static String location(List<String> scoreboard) {
+		for (String l : scoreboard) {
+			int i = l.indexOf('\u23E3');
+			if (i < 0) continue;
+			return l.substring(i + 1).replaceAll("[^\\p{L}\\p{N} '-]", "").trim();
+		}
+		return "";
+	}
+
+	private static final Pattern LEVEL_TAG = Pattern.compile("\\[Lv\\s*[0-9,]+\\]");
+	private static final Pattern MOB_WORDS = Pattern.compile("[A-Za-z][A-Za-z' ]*[A-Za-z]");
+
+	/**
+	 * A mob's name tag ("[Lv67] Old Wolf 15k/15k❤", "☠ Sven Packmaster 2M❤") -> "Old Wolf". Tags without a
+	 * health heart (timers, "Spawned by: ...", pets) give null.
+	 */
+	public static String mobName(String tag) {
+		if (tag == null || tag.indexOf('\u2764') < 0 || tag.contains(":")) return null;
+		String t = LEVEL_TAG.matcher(tag).replaceAll(" ");
+		int heart = t.indexOf('\u2764');
+		// the name comes before the health numbers
+		Matcher digit = Pattern.compile("[0-9]").matcher(t);
+		int end = digit.find() && digit.start() < heart ? digit.start() : heart;
+		Matcher m = MOB_WORDS.matcher(t.substring(0, end));
+		if (!m.find()) return null;
+		String name = m.group().trim().replaceAll("\\s+", " ");
+		return name.length() >= 3 ? name : null;
 	}
 
 	private static Pattern stat(String name) {
