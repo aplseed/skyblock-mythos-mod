@@ -124,6 +124,36 @@ class MagicGrindParseTest {
 		assertEquals("Ruins", MagicGrindParse.location(List.of("11/22/26", " \u23E3 Ruins", "Purse: 5")));
 		assertEquals("Howling Cave", MagicGrindParse.location(List.of("\u23E3 Howling Cave")));
 		assertEquals("", MagicGrindParse.location(List.of("Purse: 5")));
+		// real scoreboard from the Crypts (world dump): the icon is a private-use glyph
+		var crypts = List.of("Autumn 29th", "9:40am", " \uE067 Crypts", "Purse: 245,342,336 (+559)", "Bits: 103,814",
+				"Slayer Quest", "Revenant Horror V", "Boss slain!", "Spooky Festival 51:52", "www.hypixel.net");
+		assertEquals("Crypts", MagicGrindParse.location(crypts));
+		assertTrue(MagicGrindParse.slayerArea("zombie", "Crypts", "Hub"));
+		assertFalse(MagicGrindParse.slayerArea("zombie", "The Mist", "Dwarven Mines"));
+		assertFalse(MagicGrindParse.slayerArea("zombie", "", "Dwarven Mines"));
+		assertTrue(MagicGrindParse.slayerArea("zombie", "", "Hub"));
+		assertTrue(MagicGrindParse.slayerArea("wolf", "Howling Cave", "The Park"));
+		assertFalse(MagicGrindParse.slayerArea("wolf", "Crypts", "Hub"));
+		assertTrue(MagicGrindParse.slayerArea("enderman", "Void Sepulture", "The End"));
+		assertFalse(MagicGrindParse.slayerArea("enderman", "Zealot Bruiser Hideout", "The End"));
+		assertFalse(MagicGrindParse.slayerArea("enderman", "Dragon's Nest", "The End"));
+		assertTrue(MagicGrindParse.slayerArea("enderman", "", "The End"));
+		assertFalse(MagicGrindParse.slayerArea("enderman", "", "Hub"));
+		assertTrue(MagicGrindParse.slayerArea("blaze", "Smoldering Tomb", "Crimson Isle"));
+		assertFalse(MagicGrindParse.slayerArea("blaze", "Burning Desert", "Crimson Isle"));
+		assertTrue(MagicGrindParse.slayerArea("blaze", "", "Crimson Isle"));
+		assertTrue(MagicGrindParse.slayerArea("spider", "Spider Mound", "Spider's Den"));
+		assertEquals("Void Sepulture", MagicGrindParse.location(List.of("\u23E3 Void Sepulture")));
+		assertEquals("Smoldering Tomb", MagicGrindParse.location(List.of("\uE067 Smoldering Tomb")));
+		assertEquals(new MagicGrindParse.SlayerQuest("Voidgloom Seraph", 4, false), MagicGrindParse.bossTag("Voidgloom Seraph IV"));
+		assertEquals(new MagicGrindParse.SlayerQuest("Inferno Demonlord", 4, false), MagicGrindParse.bossTag("Inferno Demonlord IV"));
+		assertEquals(5, MagicGrindParse.slayerQuest(crypts).tier());
+		assertEquals("Revenant Horror", MagicGrindParse.slayerQuest(crypts).boss());
+		assertEquals("Crypt Ghoul", MagicGrindParse.mobName("[Lv33] \uE084 Crypt Ghoul 1,600/2,000\u2764"));
+		assertNull(MagicGrindParse.mobName("[Lv83] Ghoul"));    // your pet's tag has no health
+		var drop = MagicGrindParse.rareDrop("VERY RARE DROP! (Undead Catalyst) (+125\uE01A Magic Find)");
+		assertEquals("Undead Catalyst", drop.item());
+		assertEquals(125, drop.magicFind(), 1e-9);
 	}
 
 	@Test

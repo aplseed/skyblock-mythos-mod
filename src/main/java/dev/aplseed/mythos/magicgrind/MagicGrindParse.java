@@ -1,6 +1,7 @@
 package dev.aplseed.mythos.magicgrind;
 
 import java.util.List;
+import java.util.Set;
 import java.util.Locale;
 import java.util.Map;
 import java.util.OptionalDouble;
@@ -192,6 +193,24 @@ public final class MagicGrindParse {
 		return tier > 0 && tier <= 5 ? new SlayerQuest(m.group(1), tier, false) : null;
 	}
 
+	// where each slayer is done: scoreboard zones, and the islands they're on (when only the tab's "Area:" is known)
+	private static final Map<String, Set<String>> SLAYER_ZONES = Map.of(
+			"wolf", Set.of("Ruins", "Howling Cave"), "zombie", Set.of("Crypts"),
+			"enderman", Set.of("Void Sepulture"), "blaze", Set.of("Smoldering Tomb"));
+	private static final Map<String, Set<String>> SLAYER_ISLANDS = Map.of(
+			"wolf", Set.of("Hub", "The Park"), "zombie", Set.of("Hub"),
+			"enderman", Set.of("The End"), "blaze", Set.of("Crimson Isle"));
+
+	/**
+	 * Whether you're where `slayer` is done: the scoreboard zone if it's known, else the island. Slayers without a
+	 * list (spider) count anywhere.
+	 */
+	public static boolean slayerArea(String slayer, String zone, String island) {
+		if (slayer == null || !SLAYER_ZONES.containsKey(slayer)) return true;
+		if (zone != null && !zone.isEmpty()) return SLAYER_ZONES.get(slayer).contains(zone);
+		return island == null || island.isEmpty() || SLAYER_ISLANDS.get(slayer).contains(island);
+	}
+
 	/** Slayer key MagicGrind uses for a boss name ("Sven Packmaster" -> "wolf"). */
 	public static String slayerOf(String boss) {
 		return switch (boss) {
@@ -213,6 +232,13 @@ public final class MagicGrindParse {
 			if (i < 0) i = l.indexOf('\u0444');      // the Rift's icon
 			if (i < 0) continue;
 			return l.substring(i + 1).replaceAll("[^\\p{L}\\p{N} '-]", "").trim();
+		}
+		// newer scoreboards draw the icon with a resource-pack glyph: "<U+E067> Crypts"
+		for (String raw : scoreboard) {
+			String l = clean(raw);
+			if (l.isEmpty() || l.charAt(0) < '\uE000' || l.charAt(0) > '\uF8FF') continue;
+			String name = l.substring(1).trim();
+			if (name.matches("[\\p{L}][\\p{L}\\p{N} '-]{1,40}")) return name;
 		}
 		return "";
 	}

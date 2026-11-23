@@ -31,11 +31,12 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * Slayer profit tracker (Sven in the Ruins/Park, Revenant in the Crypts): a session of slayer quests, sent to MagicGrind, which compares it with what
+ * Slayer profit tracker (Sven in the Ruins/Park, Revenant in the Crypts, Voidgloom in the Void Sepulture, Inferno
+ * Demonlord in the Smoldering Tomb): a session of slayer quests, sent to MagicGrind, which compares it with what
  * it expected. Display-only: nothing is clicked or automated.
  *
  * <ul>
- *   <li>bosses: "NICE! SLAYER BOSS SLAIN!", tier from the scoreboard's "Slayer Quest" lines</li>
+ *   <li>bosses: "SLAYER QUEST COMPLETE!" (older: "NICE! SLAYER BOSS SLAIN!"), tier from the scoreboard's "Slayer Quest" lines</li>
  *   <li>quests: "SLAYER QUEST STARTED!"; their cost is the purse drop that goes with it</li>
  *   <li>mobs and minibosses: by their name tag; "hit" = you hit it and it died, "near" = it died within 10 blocks
  *       while your quest was active (AoE kills, but also other players')</li>
@@ -51,7 +52,8 @@ public final class SlayerTracker {
 			"Voidgloom Seraph", "Inferno Demonlord", "Riftstalker Bloodfiend", "Atoned Horror");
 
 	private static String id, slayer, area = "";
-	private static long started, activeMs, lastTick, lastActivity, lastKill, lastSent, lastScreenOpen, questStartAt, purseDropAt;
+	private static boolean inArea = true;   // in a zone where the slayer is done (Crypts, Ruins, Howling Cave, Void Sepulture, Smoldering Tomb)
+	private static long started, activeMs, lastTick, lastActivity, lastKill, lastSent, lastScreenOpen, questStartAt, purseDropAt, lastSlainAt;
 	private static int ticks, failed, costSeen;
 	private static double coins, cost, purseDrop;
 	private static boolean dirty, questPending, costPending;
@@ -66,6 +68,8 @@ public final class SlayerTracker {
 	private static final Map<Integer, Long> HIT = new HashMap<>();
 	private static final Map<Integer, String> NAMES = new HashMap<>();
 	private static final Set<Integer> COUNTED = new HashSet<>();
+	// what the death tracking saw, for the F8 world dump
+	private static int debugNamed, debugDeaths, debugVanished, debugVanishedHit, debugFar;
 	private static Map<String, Integer> inventory;
 	private static String weapon = "";
 	private static volatile JsonObject summary;
@@ -81,6 +85,7 @@ public final class SlayerTracker {
 	}
 
 	private static void reset() {
+		debugNamed = debugDeaths = debugVanished = debugVanishedHit = debugFar = 0;
 		id = slayer = null;
 		started = activeMs = lastActivity = lastKill = 0;
 		failed = costSeen = 0;
@@ -105,6 +110,18 @@ public final class SlayerTracker {
 		id = UUID.randomUUID().toString();
 		started = lastActivity = now;
 		slayer = which;
+	}
+
+	/** Tracker state for the F8 world dump. */
+	public static String debug() {
+		return "session " + (id == null ? "none" : slayer + " " + (activeMs / 1000) + "s active")
+				+ " | quest " + (quest == null ? "none" : quest.boss() + " T" + quest.tier() + (quest.bossUp() ? " boss up" : ""))
+				+ " | area '" + area + "'" + (inArea ? "" : " (not a " + slayer + " slayer area: paused)")
+				+ "\nbosses " + BOSS_KILLS + " quests " + QUESTS + " failed " + failed
+				+ "\nmobs named " + debugNamed + ", tracked now " + NAMES.size() + ", died " + debugDeaths
+				+ ", too far/not hit " + debugFar + ", vanished right after your hit " + debugVanishedHit
+				+ ", vanished otherwise " + debugVanished
+				+ "\nkills " + MOBS.entrySet().stream().map(e -> e.getKey() + " " + e.getValue()[0] + "+" + e.getValue()[1]).toList();
 	}
 
 	private static boolean on() {
@@ -140,7 +157,7 @@ public final class SlayerTracker {
 
 	/** You hit something: remember it so its death counts as your kill. */
 	public static void onAttack(Entity target) {
-		if (!on() || target == null || !isMob(target) || (quest == null && id == null)) return;
+		if (!on() || !inArea || target == null || !isMob(target) || (quest == null && id == null)) return;
 		long now = System.currentTimeMillis();
 		HIT.put(target.getId(), now);
 		lastActivity = now;
@@ -173,10 +190,13 @@ public final class SlayerTracker {
 		for (String raw : text.split("\\R")) {
 			String l = raw.trim();
 			started |= l.startsWith("SLAYER QUEST STARTED");
-			slain |= l.contains("SLAYER BOSS SLAIN");
+			// "SLAYER QUEST COMPLETE!" is what Hypixel sends now; "NICE! SLAYER BOSS SLAIN!" was the old line
+			slain |= l.contains("SLAYER BOSS SLAIN") || l.startsWith("SLAYER QUEST COMPLETE");
 			failedNow |= l.startsWith("SLAYER QUEST FAILED");
 		}
+		if (slain && now - lastSlainAt < 5000) slain = false;    // both lines for one boss: count it once
 		if (slain && id != null) {
+			lastSlainAt = now;
 			MagicGrindParse.SlayerQuest q = quest != null ? quest : bossTag != null ? bossTag : lastQuest;
 			if (q != null) BOSS_KILLS.merge(Integer.toString(q.tier()), 1, Integer::sum);
 			else BOSS_KILLS.merge("0", 1, Integer::sum);      // tier unknown: MagicGrind uses the session's main tier
@@ -257,14 +277,16 @@ public final class SlayerTracker {
 			quest = MagicGrindParse.slayerQuest(sb);
 			// the Rift's slayer isn't tracked (MagicGrind leaves the Rift out)
 			if (quest != null && MagicGrindParse.slayerOf(quest.boss()).equals("vampire")) quest = null;
-			area = MagicGrindParse.location(sb);
-			if (area.isEmpty()) {
-				for (String t : dev.aplseed.mythos.util.TabList.lines()) {
-					String c = MagicGrindParse.clean(t);
-					if (c.startsWith("Area:")) area = c.substring(5).trim();
-				}
+			String zone = MagicGrindParse.location(sb), island = "";
+			for (String t : dev.aplseed.mythos.util.TabList.lines()) {
+				String c = MagicGrindParse.clean(t);
+				if (c.startsWith("Area:")) island = c.substring(5).trim();
 			}
-			if (quest != null) {
+			area = zone.isEmpty() ? island : zone;
+			// a quest held elsewhere (Ghosts in the Mist with a Revenant quest) isn't slaying: pause there
+			String which0 = quest != null ? MagicGrindParse.slayerOf(quest.boss()) : slayer;
+			inArea = MagicGrindParse.slayerArea(which0, zone, island);
+			if (quest != null && inArea) {
 				String which = MagicGrindParse.slayerOf(quest.boss());
 				if (id == null || now - lastActivity > NEW_SESSION_MS) start(now, which);
 				else if (slayer == null) slayer = which;
@@ -283,6 +305,8 @@ public final class SlayerTracker {
 					dirty = true;
 				}
 				lastQuest = quest;
+				// a quest on the scoreboard means you're slaying, even with ability/AoE kills that aren't "attacks"
+				lastActivity = Math.max(lastActivity, now);
 			}
 		}
 		if (id == null) return;
@@ -290,37 +314,57 @@ public final class SlayerTracker {
 			reset();
 			return;
 		}
-		boolean active = now - lastActivity < IDLE_MS;
+		boolean active = inArea && now - lastActivity < IDLE_MS;
 		if (active) {
 			activeMs += dt;
 			if (!area.isEmpty()) AREAS.merge(area, dt / 1000.0, Double::sum);
 		}
 
-		// name tags of mobs around you, so deaths can be told apart (Old Wolf, Pack Enforcer...)
-		if (ticks % 10 == 0 && (quest != null || active)) {
+		// name tags of mobs around you, so deaths can be told apart (Old Wolf, Pack Enforcer...); every 10 ticks,
+		// and every tick for a mob that's dying before it was named (fast AoE kills)
+		if (inArea && (quest != null || active)) {
+			boolean full = ticks % 10 == 0;
 			for (Entity e : mc.level.entitiesForRendering()) {
-				if (!isMob(e) || NAMES.containsKey(e.getId()) || e.distanceTo(mc.player) > SCAN) continue;
+				if (!isMob(e) || NAMES.containsKey(e.getId()) || COUNTED.contains(e.getId())) continue;
+				if (!full && !(e instanceof LivingEntity le && le.isDeadOrDying())) continue;
+				if (e.distanceTo(mc.player) > SCAN) continue;
 				String n = nameOf(e);
-				if (n != null) NAMES.put(e.getId(), n);
+				if (n != null) {
+					NAMES.put(e.getId(), n);
+					debugNamed++;
+				}
 			}
 		}
 		// deaths: yours if you hit it, "nearby" if it died close to you during your quest
 		for (Iterator<Map.Entry<Integer, String>> it = NAMES.entrySet().iterator(); it.hasNext(); ) {
 			Map.Entry<Integer, String> n = it.next();
 			Entity e = mc.level.getEntity(n.getKey());
+			boolean mine, near;
+			String name = n.getValue();
 			if (e == null || e.isRemoved()) {
+				// gone without a dying state: it died if you'd just hit it, otherwise it despawned or went out of range
 				it.remove();
-				HIT.remove(n.getKey());
+				Long hit = HIT.remove(n.getKey());
+				if (hit == null || now - hit > 1500 || !COUNTED.add(n.getKey())) {
+					debugVanished++;
+					continue;
+				}
+				debugVanishedHit++;
+				mine = true;
+				near = false;
+			} else {
+				if (!(e instanceof LivingEntity le) || !le.isDeadOrDying() || !COUNTED.add(e.getId())) continue;
+				it.remove();
+				debugDeaths++;
+				Long hit = HIT.remove(e.getId());
+				mine = hit != null && now - hit < 30_000;
+				near = !mine && quest != null && e.distanceTo(mc.player) <= NEAR;
+			}
+			if (MagicGrindParse.bossTag(name) != null || BOSSES.contains(name)) continue;   // bosses are counted from chat
+			if (!mine && !near) {
+				debugFar++;
 				continue;
 			}
-			if (!(e instanceof LivingEntity le) || !le.isDeadOrDying() || !COUNTED.add(e.getId())) continue;
-			it.remove();
-			Long hit = HIT.remove(e.getId());
-			String name = n.getValue();
-			if (MagicGrindParse.bossTag(name) != null || BOSSES.contains(name)) continue;   // bosses are counted from chat
-			boolean mine = hit != null && now - hit < 30_000;
-			boolean near = !mine && quest != null && e.distanceTo(mc.player) <= NEAR;
-			if (!mine && !near) continue;
 			MOBS.computeIfAbsent(name, k -> new int[2])[mine ? 0 : 1]++;
 			lastActivity = lastKill = now;
 			dirty = true;
@@ -434,7 +478,7 @@ public final class SlayerTracker {
 	}
 
 	public static void renderHud(GuiGraphicsExtractor g) {
-		if (!on() || id == null || slayer == null || (quest == null && System.currentTimeMillis() - lastActivity > IDLE_MS)) return;
+		if (!on() || id == null || slayer == null || !inArea || (quest == null && System.currentTimeMillis() - lastActivity > IDLE_MS)) return;
 		Minecraft mc = Minecraft.getInstance();
 		if (mc.gui.hud.isHidden()) return;
 		Font font = mc.font;

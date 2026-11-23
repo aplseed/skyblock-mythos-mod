@@ -37,6 +37,7 @@ public final class WorldDump {
 		Minecraft mc = Minecraft.getInstance();
 		StringBuilder sb = new StringBuilder("title: (no menu) world dump\n--- scoreboard\n");
 		for (String l : Scoreboard.lines()) sb.append(l).append("    | ").append(codes(l)).append('\n');
+		sb.append("--- slayer tracker\n").append(dev.aplseed.mythos.magicgrind.SlayerTracker.debug()).append('\n');
 		sb.append("--- tab list\n");
 		for (String l : TabList.lines()) sb.append(l).append('\n');
 		sb.append("--- chat (last 60)\n");
