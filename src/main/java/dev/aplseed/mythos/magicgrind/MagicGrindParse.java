@@ -195,13 +195,15 @@ public final class MagicGrindParse {
 
 	// where each slayer is done: scoreboard zones, and the islands they're on (when only the tab's "Area:" is known)
 	private static final Map<String, Set<String>> SLAYER_ZONES = Map.of(
-			"wolf", Set.of("Ruins", "Howling Cave"), "zombie", Set.of("Crypts"));
+			"wolf", Set.of("Ruins", "Howling Cave"), "zombie", Set.of("Crypts"),
+			"enderman", Set.of("Void Sepulture"), "blaze", Set.of("Smoldering Tomb"));
 	private static final Map<String, Set<String>> SLAYER_ISLANDS = Map.of(
-			"wolf", Set.of("Hub", "The Park"), "zombie", Set.of("Hub"));
+			"wolf", Set.of("Hub", "The Park"), "zombie", Set.of("Hub"),
+			"enderman", Set.of("The End"), "blaze", Set.of("Crimson Isle"));
 
 	/**
 	 * Whether you're where `slayer` is done: the scoreboard zone if it's known, else the island. Slayers without a
-	 * list (spider, enderman, blaze) count anywhere.
+	 * list (spider) count anywhere.
 	 */
 	public static boolean slayerArea(String slayer, String zone, String island) {
 		if (slayer == null || !SLAYER_ZONES.containsKey(slayer)) return true;

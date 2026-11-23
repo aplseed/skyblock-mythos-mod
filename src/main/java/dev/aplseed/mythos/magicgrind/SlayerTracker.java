@@ -31,7 +31,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * Slayer profit tracker (Sven in the Ruins/Park, Revenant in the Crypts): a session of slayer quests, sent to MagicGrind, which compares it with what
+ * Slayer profit tracker (Sven in the Ruins/Park, Revenant in the Crypts, Voidgloom in the Void Sepulture, Inferno
+ * Demonlord in the Smoldering Tomb): a session of slayer quests, sent to MagicGrind, which compares it with what
  * it expected. Display-only: nothing is clicked or automated.
  *
  * <ul>
@@ -51,7 +52,7 @@ public final class SlayerTracker {
 			"Voidgloom Seraph", "Inferno Demonlord", "Riftstalker Bloodfiend", "Atoned Horror");
 
 	private static String id, slayer, area = "";
-	private static boolean inArea = true;   // in a zone where the slayer is done (Crypts, Ruins, Howling Cave)
+	private static boolean inArea = true;   // in a zone where the slayer is done (Crypts, Ruins, Howling Cave, Void Sepulture, Smoldering Tomb)
 	private static long started, activeMs, lastTick, lastActivity, lastKill, lastSent, lastScreenOpen, questStartAt, purseDropAt, lastSlainAt;
 	private static int ticks, failed, costSeen;
 	private static double coins, cost, purseDrop;
